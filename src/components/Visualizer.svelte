@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { analyser, player } from '../lib/player.svelte';
+  import { analyser, player, releaseAnalyser } from '../lib/player.svelte';
 
   let { mode }: { mode: 'spectrum' | 'scope' } = $props();
 
@@ -105,6 +105,9 @@
     // Keep drawing while there's audio to show or bars still falling; otherwise rest.
     if ((player.playing && node) || busy) frame = requestAnimationFrame(tick);
   }
+
+  // Let the player stop feeding the analyser once this is off screen.
+  $effect(() => releaseAnalyser);
 
   $effect(() => {
     const ro = new ResizeObserver(([e]) => {

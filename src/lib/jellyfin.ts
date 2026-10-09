@@ -263,12 +263,12 @@ const directPlayContainers = (() => {
   return list.join(',');
 })();
 
-export function streamUrl(trackId: string): string {
+export function streamUrl(trackId: string, device = deviceId): string {
   const s = requireSession();
   const q = settings.streamQuality;
   return `${s.server}/Audio/${trackId}/universal?${qs({
     UserId: s.userId,
-    DeviceId: deviceId,
+    DeviceId: device,
     MaxStreamingBitrate: q === 'original' ? 999_999_999 : q * 1000,
     Container: directPlayContainers,
     TranscodingContainer: 'aac',
