@@ -19,6 +19,8 @@ export interface Settings {
   downloadFormat: 'transcoded' | 'original';
   downloadBitrate: 320 | 192 | 128;
   visualizer: boolean;
+  /** last Now Playing view, restored when it reopens */
+  nowPlayingView: 'art' | 'spectrum' | 'scope';
 }
 
 /** iOS (including iPadOS, which reports itself as a Mac) */
@@ -34,6 +36,7 @@ const defaultSettings: Settings = {
   downloadFormat: 'transcoded',
   downloadBitrate: 192,
   visualizer: !isIOS,
+  nowPlayingView: 'art',
 };
 
 function load<T>(key: string): T | null {
