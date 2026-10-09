@@ -1,0 +1,67 @@
+/**
+ * Auth session and user settings. These are tiny and needed synchronously at startup
+ * (to build stream/image URLs), so they live in localStorage. Everything large goes
+ * to IndexedDB / Cache Storage.
+ */
+
+export interface Session {
+  server: string; // e.g. https://jellyfin.example.com (no trailing slash)
+  serverName: string;
+  userId: string;
+  userName: string;
+  token: string;
+}
+
+export type StreamQuality = 'original' | 320 | 192 | 128;
+
+export interface Settings {
+  streamQuality: StreamQuality;
+  downloadFormat: 'transcoded' | 'original';
+  downloadBitrate: 320 | 192 | 128;
+}
+
+const SESSION_KEY = 'jf.session';
+const SETTINGS_KEY = 'jf.settings';
+const DEVICE_KEY = 'jf.deviceId';
+
+const defaultSettings: Settings = { streamQuality: 'original', downloadFormat: 'transcoded', downloadBitrate: 192 };
+
+function load<T>(key: string): T | null {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+function save(key: string, value: unknown) {
+  try {
+    if (value == null) localStorage.removeItem(key);
+    else localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* private mode / quota: the session just won't persist */
+  }
+}
+
+export const deviceId: string = (() => {
+  let id = load<string>(DEVICE_KEY);
+  if (!id) {
+    id = crypto.randomUUID();
+    save(DEVICE_KEY, id);
+  }
+  return id;
+})();
+
+export const auth = $state<{ session: Session | null }>({ session: load<Session>(SESSION_KEY) });
+
+export function setSession(session: Session | null) {
+  auth.session = session;
+  save(SESSION_KEY, session);
+}
+
+export const settings = $state<Settings>({ ...defaultSettings, ...load<Partial<Settings>>(SETTINGS_KEY) });
+
+export function saveSettings() {
+  save(SETTINGS_KEY, $state.snapshot(settings));
+}
