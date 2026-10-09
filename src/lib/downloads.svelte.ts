@@ -53,11 +53,15 @@ export async function requestPersistence() {
 }
 
 /** Object URL for a downloaded track, or null. Caller must revoke it. */
-export async function offlineAudioUrl(trackId: string): Promise<string | null> {
+export async function offlineAudioBlob(trackId: string): Promise<Blob | null> {
   if (!downloads.tracks.has(trackId)) return null;
   const res = await (await caches.open(AUDIO_CACHE)).match(key(trackId));
-  if (!res) return null;
-  return URL.createObjectURL(await res.blob());
+  return res ? res.blob() : null;
+}
+
+export async function offlineAudioUrl(trackId: string): Promise<string | null> {
+  const blob = await offlineAudioBlob(trackId);
+  return blob && URL.createObjectURL(blob);
 }
 
 let running: Promise<void> = Promise.resolve();

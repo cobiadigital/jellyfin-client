@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Component } from 'svelte';
-  import { analyser, clearQueue, current, cycleRepeat, jumpTo, move, next, player, previous, removeAt, seek, toggle, toggleShuffle } from '../lib/player.svelte';
+  import { clearQueue, current, cycleRepeat, jumpTo, move, next, player, previous, removeAt, seek, toggle, toggleShuffle } from '../lib/player.svelte';
   import { artistLine, duration } from '../lib/format';
   import { href } from '../lib/router.svelte';
   import { saveSettings, settings } from '../lib/session.svelte';
@@ -30,8 +30,6 @@
     const i = views.indexOf(view);
     settings.nowPlayingView = views[(i + dir + views.length) % views.length];
     saveSettings();
-    // Called from a tap or swipe, so the audio graph can start inside a user gesture.
-    if (settings.nowPlayingView !== 'art') analyser(true);
   }
 
   function setFull(on: boolean) {
@@ -48,7 +46,6 @@
     const dx = e.clientX - swipe.x;
     const dy = e.clientY - swipe.y;
     swipe = null;
-    if (view !== 'art') analyser(true);
     if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) {
       step(dx < 0 ? 1 : -1);
       lastTap = 0;

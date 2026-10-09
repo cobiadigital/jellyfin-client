@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { analyser, player, releaseAnalyser } from '../lib/player.svelte';
+  import { decode, FFT_SIZE, spectrum, waveform, type Decoded } from '../lib/analysis';
+  import { current, player, position } from '../lib/player.svelte';
 
   let { mode }: { mode: 'spectrum' | 'scope' } = $props();
 
@@ -21,27 +22,23 @@
 
   let canvas: HTMLCanvasElement;
   let rows = $state(16);
-  let node: AnalyserNode | null = null;
-  let freq: Uint8Array<ArrayBuffer> | null = null;
-  let wave: Uint8Array<ArrayBuffer> | null = null;
+  let data: Decoded | null = null;
+  let status = $state<'loading' | 'ready' | 'error'>('loading');
+  const freq = new Float32Array(FFT_SIZE / 2);
+  const wave = new Float32Array(W);
   let ranges: [number, number][] = [];
   const levels = new Float32Array(BARS);
   const peaks = new Float32Array(BARS);
   let frame = 0;
   let last = 0;
 
-  function connect() {
-    if (node) return;
-    node = analyser();
-    if (!node) return;
-    freq = new Uint8Array(node.frequencyBinCount);
-    wave = new Uint8Array(node.fftSize);
-    // Log-spaced bands from ~40 Hz to ~16 kHz.
-    const hz = node.context.sampleRate / node.fftSize;
-    const bins = node.frequencyBinCount;
+  // Log-spaced bands from ~40 Hz up to 16 kHz or the analysis copy's Nyquist limit.
+  function bands(rate: number) {
+    const hz = rate / FFT_SIZE;
+    const top = Math.min(16000, rate / 2) / 40;
     ranges = Array.from({ length: BARS }, (_, i) => {
-      const a = Math.min(Math.floor((40 * Math.pow(400, i / BARS)) / hz), bins - 1);
-      return [a, Math.max(a + 1, Math.ceil((40 * Math.pow(400, (i + 1) / BARS)) / hz))];
+      const a = Math.min(Math.floor((40 * Math.pow(top, i / BARS)) / hz), FFT_SIZE / 2 - 1);
+      return [a, Math.min(FFT_SIZE / 2, Math.max(a + 1, Math.ceil((40 * Math.pow(top, (i + 1) / BARS)) / hz)))];
     });
   }
 
@@ -56,7 +53,8 @@
     frame = 0;
     const dt = Math.min((now - last) / 1000, 0.1);
     last = now;
-    connect();
+    const live = data && player.playing ? data : null;
+    const t = position();
     const H = rows;
     const img = new ImageData(W, H);
     const px = (x: number, y: number, c: number[]) => {
@@ -70,12 +68,11 @@
 
     let busy = false;
     if (mode === 'spectrum') {
-      const live = node && freq && player.playing;
-      if (live) node!.getByteFrequencyData(freq!);
+      if (live) spectrum(live, t, freq);
       for (let b = 0; b < BARS; b++) {
         let v = 0;
-        if (live) for (let k = ranges[b][0]; k < ranges[b][1]; k++) v = Math.max(v, freq![k]);
-        levels[b] = Math.max(v / 255, levels[b] - BAR_FALL * dt);
+        if (live) for (let k = ranges[b][0]; k < ranges[b][1]; k++) v = Math.max(v, freq[k]);
+        levels[b] = Math.max(v, levels[b] - BAR_FALL * dt);
         peaks[b] = Math.max(levels[b], peaks[b] - PEAK_FALL * dt);
         if (peaks[b] > 0) busy = true;
         const top = Math.round(levels[b] * H);
@@ -85,15 +82,13 @@
           if (p > 0) px(x, H - p, PEAK);
         }
       }
-    } else if (node && wave && player.playing) {
-      // Winamp's scope draws ~576 samples across the window.
-      node.getByteTimeDomainData(wave);
+    } else if (live) {
+      waveform(live, t, wave);
       busy = true;
       const mid = (H - 1) / 2;
       let prev = -1;
       for (let x = 0; x < W; x++) {
-        const v = wave[Math.floor((x * 576) / W)];
-        const y = Math.max(0, Math.min(H - 1, Math.round(((255 - v) / 255) * (H - 1))));
+        const y = Math.max(0, Math.min(H - 1, Math.round(((1 - wave[x]) / 2) * (H - 1))));
         const from = prev < 0 ? y : Math.min(prev, y);
         const to = prev < 0 ? y : Math.max(prev, y);
         for (let yy = from; yy <= to; yy++) px(x, yy, SCOPE[Math.min(4, Math.floor((Math.abs(yy - mid) / (mid + 1)) * 5))]);
@@ -103,11 +98,28 @@
     canvas.getContext('2d')?.putImageData(img, 0, 0);
 
     // Keep drawing while there's audio to show or bars still falling; otherwise rest.
-    if ((player.playing && node) || busy) frame = requestAnimationFrame(tick);
+    if (live || busy) frame = requestAnimationFrame(tick);
   }
 
-  // Let the player stop feeding the analyser once this is off screen.
-  $effect(() => releaseAnalyser);
+  // Decode the current track; keep the last frame's bars falling meanwhile.
+  $effect(() => {
+    const track = current();
+    data = null;
+    status = 'loading';
+    if (!track) return;
+    let stale = false;
+    decode(track).then(
+      (d) => {
+        if (stale) return;
+        data = d;
+        bands(d.rate);
+        status = 'ready';
+        start();
+      },
+      () => !stale && (status = 'error'),
+    );
+    return () => (stale = true);
+  });
 
   $effect(() => {
     const ro = new ResizeObserver(([e]) => {
@@ -132,9 +144,24 @@
   });
 </script>
 
+{#if status !== 'ready'}
+  <span class="status">{status === 'loading' ? 'LOADING…' : navigator.onLine ? 'NO VIS DATA' : 'OFFLINE · NOT DOWNLOADED'}</span>
+{/if}
 <canvas bind:this={canvas} width={W} height={rows} aria-label={mode === 'spectrum' ? 'Spectrum analyzer' : 'Oscilloscope'}></canvas>
 
 <style>
+  .status {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    text-align: center;
+    font: 12px/1 ui-monospace, monospace;
+    letter-spacing: 0.1em;
+    color: #3fb618;
+    pointer-events: none;
+  }
   canvas {
     display: block;
     width: 100%;
