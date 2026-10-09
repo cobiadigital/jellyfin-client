@@ -16,6 +16,13 @@ export interface DownloadRecord {
   addedAt: number;
 }
 
+export interface StreamCacheRecord {
+  id: string; // track id
+  track: Item;
+  bytes: number;
+  lastUsed: number;
+}
+
 export interface CollectionRecord {
   id: string; // album or playlist id
   item: Item;
@@ -51,13 +58,14 @@ interface Schema extends DBSchema {
   downloads: { key: string; value: DownloadRecord; indexes: { byParent: string } };
   collections: { key: string; value: CollectionRecord };
   state: { key: string; value: unknown };
+  streamcache: { key: string; value: StreamCacheRecord };
   catalog: { key: string; value: CatalogRecord; indexes: { byType: string } };
 }
 
 let dbPromise: Promise<IDBPDatabase<Schema>> | undefined;
 
 export function db() {
-  dbPromise ??= openDB<Schema>('jellyfin-client', 2, {
+  dbPromise ??= openDB<Schema>('jellyfin-client', 3, {
     upgrade(d, oldVersion) {
       if (oldVersion < 1) {
         d.createObjectStore('api', { keyPath: 'key' });
@@ -66,6 +74,7 @@ export function db() {
         d.createObjectStore('state');
       }
       if (oldVersion < 2) d.createObjectStore('catalog', { keyPath: 'id' }).createIndex('byType', 'type');
+      if (oldVersion < 3) d.createObjectStore('streamcache', { keyPath: 'id' });
     },
   });
   return dbPromise;

@@ -20,6 +20,8 @@ export interface Settings {
   streamQuality: StreamQuality;
   downloadFormat: 'transcoded' | 'original';
   downloadBitrate: 320 | 192 | 128;
+  /** storage allotted to the stream cache, in MB (0 turns it off) */
+  cacheLimitMB: number;
   visualizer: boolean;
   /** last Now Playing view, restored when it reopens */
   nowPlayingView: 'art' | 'spectrum' | 'scope';
@@ -37,6 +39,7 @@ const defaultSettings: Settings = {
   streamQuality: 'original',
   downloadFormat: 'transcoded',
   downloadBitrate: 192,
+  cacheLimitMB: 500,
   visualizer: !isIOS,
   nowPlayingView: 'art',
 };

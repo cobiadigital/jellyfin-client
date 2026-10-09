@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Item } from '../lib/jellyfin';
   import { downloads } from '../lib/downloads.svelte';
+  import { streamCache } from '../lib/streamcache.svelte';
   import { addToQueue, current, playNext, playTracks, player, ticksToSeconds } from '../lib/player.svelte';
   import { duration, artistLine } from '../lib/format';
   import { href } from '../lib/router.svelte';
@@ -32,7 +33,7 @@
         <span class="text">
           <span class="title ellipsis">{track.Name}</span>
           <span class="sub muted ellipsis">
-            {#if downloads.tracks.has(track.Id)}<span class="dl"><Icon name="downloaded" size={13} /></span>{/if}
+            {#if downloads.tracks.has(track.Id)}<span class="dl" title="Downloaded"><Icon name="downloaded" size={13} /></span>{:else if streamCache.tracks.has(track.Id)}<span class="cached" title="Cached"><Icon name="cached" size={13} /></span>{/if}
             {artistLine(track)}{showArt && track.Album ? ` · ${track.Album}` : ''}
           </span>
         </span>
@@ -125,6 +126,9 @@
   }
   .dl {
     color: var(--accent);
+    vertical-align: -2px;
+  }
+  .cached {
     vertical-align: -2px;
   }
 </style>
