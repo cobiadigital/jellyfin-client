@@ -85,14 +85,18 @@
   let sentinel = $state<HTMLElement>();
   let generation = 0;
 
+  function fetchPage(offset: number) {
+    // Filtering reads the local index when it can, which is instant and works offline.
+    const term = filter.trim();
+    return (async () => (term && (await filterCatalog(kind, term, prefs.sort, prefs.order, navigator.onLine))) || libraryPage(kind, offset, 60, prefs.sort, prefs.order, filter))();
+  }
+
   async function loadMore() {
     if (loading || items.length >= total) return;
     loading = true;
     const gen = generation;
     try {
-      // Filtering reads the local index when it can, which is instant and works offline.
-      const term = filter.trim();
-      const page = (term && (await filterCatalog(kind, term, prefs.sort, prefs.order, navigator.onLine))) || (await libraryPage(kind, items.length, 60, prefs.sort, prefs.order, filter));
+      const page = await fetchPage(items.length);
       if (gen !== generation) return;
       items.push(...page.Items);
       total = page.Items.length ? page.TotalRecordCount : items.length;
@@ -112,13 +116,45 @@
     kind;
     prefs.sort;
     prefs.order;
-    filter;
     generation++;
     items = [];
     total = Infinity;
     error = '';
     loading = false;
     untrack(loadMore);
+  });
+
+  // A new filter keeps the current items on screen and swaps in the fresh results when they arrive.
+  let firstFilter = true;
+  $effect(() => {
+    filter;
+    if (firstFilter) {
+      firstFilter = false;
+      return;
+    }
+    untrack(async () => {
+      const gen = ++generation;
+      loading = false;
+      try {
+        const page = await fetchPage(0);
+        if (gen !== generation) return;
+        items = page.Items;
+        total = page.Items.length ? page.TotalRecordCount : 0;
+        error = '';
+      } catch (err) {
+        if (gen === generation) {
+          error = (err as Error).message;
+          total = items.length;
+        }
+      }
+    });
+  });
+
+  // Hide loaded items that no longer match as the user types, before the results come back.
+  const visible = $derived.by(() => {
+    const q = filterInput.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter((i) => i.Name.toLowerCase().includes(q) || (kind === 'albums' && i.AlbumArtist?.toLowerCase().includes(q)));
   });
 
   // Infinite scroll: load the next page as the bottom comes into view.
@@ -158,13 +194,13 @@
 
   {#if prefs.view === 'tiles'}
     <div class="grid">
-      {#each items as item (item.Id)}
+      {#each visible as item (item.Id)}
         <ItemCard {item} />
       {/each}
     </div>
   {:else}
     <div class="rows">
-      {#each items as item (item.Id)}
+      {#each visible as item (item.Id)}
         <ItemRow {item} />
       {/each}
     </div>
@@ -174,7 +210,7 @@
     <div class="center"><p class="error">{error}</p><button class="btn" onclick={retry}>Retry</button></div>
   {:else if loading}
     <div class="center"><div class="spinner"></div></div>
-  {:else if !items.length}
+  {:else if !visible.length}
     <p class="muted center">{filter.trim() ? `No ${kind} match "${filter.trim()}".` : 'Nothing here yet.'}</p>
   {/if}
   {#if filterInput.trim() && !loading}
