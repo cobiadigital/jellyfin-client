@@ -23,22 +23,49 @@ export interface CollectionRecord {
   addedAt: number;
 }
 
+export type CatalogType = 'artist' | 'album' | 'playlist' | 'genre' | 'song';
+
+/** One row of the local content index (see catalog.svelte.ts). Kept deliberately light. */
+export interface CatalogRecord {
+  id: string;
+  type: CatalogType;
+  name: string;
+  n: string; // normalized name, used for sorting and prefix ranking
+  q: string; // normalized search text (name plus artist, plus album for songs)
+  artist?: string;
+  artistId?: string;
+  album?: string;
+  albumId?: string;
+  year?: number;
+  count?: number; // tracks in an album or playlist
+  dur?: number; // RunTimeTicks
+  track?: number;
+  disc?: number;
+  added?: string;
+  img?: string; // primary image tag (the album's, for songs)
+  s: string; // id of the sync that last saw this record, used to drop removed items
+}
+
 interface Schema extends DBSchema {
   api: { key: string; value: { key: string; data: unknown; savedAt: number } };
   downloads: { key: string; value: DownloadRecord; indexes: { byParent: string } };
   collections: { key: string; value: CollectionRecord };
   state: { key: string; value: unknown };
+  catalog: { key: string; value: CatalogRecord; indexes: { byType: string } };
 }
 
 let dbPromise: Promise<IDBPDatabase<Schema>> | undefined;
 
 export function db() {
-  dbPromise ??= openDB<Schema>('jellyfin-client', 1, {
-    upgrade(d) {
-      d.createObjectStore('api', { keyPath: 'key' });
-      d.createObjectStore('downloads', { keyPath: 'id' }).createIndex('byParent', 'parentId');
-      d.createObjectStore('collections', { keyPath: 'id' });
-      d.createObjectStore('state');
+  dbPromise ??= openDB<Schema>('jellyfin-client', 2, {
+    upgrade(d, oldVersion) {
+      if (oldVersion < 1) {
+        d.createObjectStore('api', { keyPath: 'key' });
+        d.createObjectStore('downloads', { keyPath: 'id' }).createIndex('byParent', 'parentId');
+        d.createObjectStore('collections', { keyPath: 'id' });
+        d.createObjectStore('state');
+      }
+      if (oldVersion < 2) d.createObjectStore('catalog', { keyPath: 'id' }).createIndex('byType', 'type');
     },
   });
   return dbPromise;

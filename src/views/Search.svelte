@@ -1,10 +1,21 @@
 <script lang="ts">
   import { search, type Item } from '../lib/jellyfin';
+  import { catalogComplete, searchCatalog } from '../lib/catalog.svelte';
   import ItemCard from '../components/ItemCard.svelte';
   import TrackList from '../components/TrackList.svelte';
 
   let term = $state(sessionStorage.getItem('jf.search') ?? '');
-  let results = $state<{ artists: Item[]; albums: Item[]; tracks: Item[]; playlists: Item[] } | null>(null);
+  type Results = { artists: Item[]; albums: Item[]; tracks: Item[]; playlists: Item[] };
+  let results = $state<Results | null>(null);
+
+  // Local matches first, then anything the server has that the index doesn't yet.
+  function merge(local: Results, remote: Results): Results {
+    const add = (a: Item[], b: Item[]) => {
+      const seen = new Set(a.map((i) => i.Id));
+      return [...a, ...b.filter((i) => !seen.has(i.Id))];
+    };
+    return { artists: add(local.artists, remote.artists), albums: add(local.albums, remote.albums), tracks: add(local.tracks, remote.tracks), playlists: add(local.playlists, remote.playlists) };
+  }
   let loading = $state(false);
   let error = $state('');
   let timer: ReturnType<typeof setTimeout>;
@@ -26,10 +37,21 @@
       loading = true;
       error = '';
       try {
+        // The local index answers instantly and works offline.
+        const local = await searchCatalog(q);
+        if (mine !== seq) return;
+        if (local) {
+          results = local;
+          loading = false;
+          if (!navigator.onLine || (await catalogComplete())) return;
+        } else if (!navigator.onLine) {
+          error = 'Search needs a connection until the library index is built.';
+          return;
+        }
         const r = await search(q);
-        if (mine === seq) results = r;
+        if (mine === seq) results = local ? merge(local, r) : r;
       } catch (err) {
-        if (mine === seq) error = navigator.onLine ? (err as Error).message : 'Search needs a connection.';
+        if (mine === seq && !results) error = navigator.onLine ? (err as Error).message : 'Search needs a connection.';
       } finally {
         if (mine === seq) loading = false;
       }

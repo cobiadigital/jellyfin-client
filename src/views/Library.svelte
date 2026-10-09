@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import { libraryPage, type Item, type LibraryKind, type LibrarySort, type SortOrder } from '../lib/jellyfin';
+  import { filterCatalog } from '../lib/catalog.svelte';
   import { href } from '../lib/router.svelte';
   import ItemCard from '../components/ItemCard.svelte';
   import ItemRow from '../components/ItemRow.svelte';
@@ -89,7 +90,9 @@
     loading = true;
     const gen = generation;
     try {
-      const page = await libraryPage(kind, items.length, 60, prefs.sort, prefs.order, filter);
+      // Filtering reads the local index when it can, which is instant and works offline.
+      const term = filter.trim();
+      const page = (term && (await filterCatalog(kind, term, prefs.sort, prefs.order, navigator.onLine))) || (await libraryPage(kind, items.length, 60, prefs.sort, prefs.order, filter));
       if (gen !== generation) return;
       items.push(...page.Items);
       total = page.Items.length ? page.TotalRecordCount : items.length;

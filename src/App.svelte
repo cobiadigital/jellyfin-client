@@ -3,6 +3,7 @@
   import { auth } from './lib/session.svelte';
   import { exitDemo, handleDemoLink } from './lib/demo';
   import { route, href } from './lib/router.svelte';
+  import { startCatalogSync } from './lib/catalog.svelte';
   import { initDownloads } from './lib/downloads.svelte';
   import { player, restoreQueue } from './lib/player.svelte';
   import type { LibraryKind } from './lib/jellyfin';
@@ -33,6 +34,11 @@
   // `#/demo` starts the demo library directly (handy for preview links).
   $effect(() => {
     if (route.name === 'demo') untrack(handleDemoLink);
+  });
+
+  // Build or refresh the local content index in the background whenever someone is signed in.
+  $effect(() => {
+    if (auth.session && !auth.session.demo) untrack(startCatalogSync);
   });
 
   onMount(() => {

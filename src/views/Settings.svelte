@@ -2,6 +2,8 @@
   import { logout } from '../lib/jellyfin';
   import { auth, saveSettings, setSession, settings } from '../lib/session.svelte';
   import { clearApiCache } from '../lib/cache';
+  import { catalog, catalogStats, clearCatalog, syncCatalog, type CatalogStats } from '../lib/catalog.svelte';
+  import { bytes } from '../lib/format';
   import { clearQueue } from '../lib/player.svelte';
   import { exitDemo } from '../lib/demo';
 
@@ -14,11 +16,25 @@
     saveSettings();
   });
 
+  let stats = $state<CatalogStats | null>(null);
+  $effect(() => {
+    catalog.status; // reload when a sync starts or ends, and as it makes progress
+    catalog.version;
+    catalogStats().then((s) => (stats = s));
+  });
+
+  async function clearIndex() {
+    if (!confirm('Clear the library index? It will be rebuilt in the background.')) return;
+    await clearCatalog();
+    syncCatalog(true);
+  }
+
   async function signOut() {
     if (!confirm('Sign out? Downloaded music stays on this device.')) return;
     clearQueue();
     await logout();
     await clearApiCache();
+    await clearCatalog();
     setSession(null);
     location.hash = '';
   }
@@ -38,6 +54,36 @@
       <button class="btn" onclick={signOut}>Sign out</button>
     {/if}
   </section>
+
+  {#if !auth.session?.demo}
+    <section>
+      <h2>Library index</h2>
+      <p class="muted small">A local copy of your library's names, so search and filters are instant and work offline. It builds and refreshes itself in the background.</p>
+      {#if stats}
+        <p>
+          {#if catalog.status === 'syncing'}
+            Syncing{catalog.progress ? `: ${catalog.progress}` : '…'}
+          {:else if catalog.status === 'error'}
+            Last sync failed. It will retry.
+          {:else if catalog.status === 'offline'}
+            Offline. Sync will resume when you are back online.
+          {:else if stats.lastSync}
+            Last synced {new Date(stats.lastSync).toLocaleString()}
+          {:else}
+            Not synced yet
+          {/if}
+        </p>
+        <p class="muted small">
+          {stats.counts.song.toLocaleString()} songs · {stats.counts.album.toLocaleString()} albums · {stats.counts.artist.toLocaleString()} artists ·
+          {stats.counts.playlist.toLocaleString()} playlists · {stats.counts.genre.toLocaleString()} genres · about {bytes(stats.bytes)}
+        </p>
+      {/if}
+      <div class="row">
+        <button class="btn" disabled={catalog.status === 'syncing'} onclick={() => syncCatalog(true)}>Sync now</button>
+        <button class="btn" disabled={catalog.status === 'syncing'} onclick={clearIndex}>Clear index</button>
+      </div>
+    </section>
+  {/if}
 
   <section>
     <h2>Streaming</h2>
@@ -137,5 +183,13 @@
   }
   p {
     margin: 6px 0;
+  }
+  .row {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .row .btn {
+    min-height: 44px;
   }
 </style>
