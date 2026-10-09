@@ -1,27 +1,78 @@
 <script lang="ts">
-  import { clearQueue, current, cycleRepeat, jumpTo, move, next, player, previous, removeAt, seek, toggle, toggleShuffle } from '../lib/player.svelte';
+  import type { Component } from 'svelte';
+  import { analyser, clearQueue, current, cycleRepeat, jumpTo, move, next, player, previous, removeAt, seek, toggle, toggleShuffle } from '../lib/player.svelte';
   import { artistLine, duration } from '../lib/format';
   import { href } from '../lib/router.svelte';
   import { settings } from '../lib/session.svelte';
   import Artwork from './Artwork.svelte';
   import Icon from './Icon.svelte';
-  import Visualizer from './Visualizer.svelte';
 
   const track = $derived(current());
   let showQueue = $state(false);
   // While dragging the slider, show the drag position instead of the live time.
   let scrub = $state<number | null>(null);
   const shownTime = $derived(scrub ?? player.time);
-  // Short screens (phone landscape) have no room for the visualizer.
-  let innerHeight = $state(window.innerHeight);
+
+  // Swiping the artwork cycles artwork → spectrum → scope; double-tap a visualizer for
+  // full screen. Nothing visualizer-related loads until the first swipe.
+  type View = 'art' | 'spectrum' | 'scope';
+  let view = $state<View>('art');
+  let full = $state(false);
+  let Visualizer = $state<Component<{ mode: 'spectrum' | 'scope' }> | null>(null);
+  const views = $derived<View[]>(full ? ['spectrum', 'scope'] : ['art', 'spectrum', 'scope']);
+
+  function step(dir: number) {
+    const i = views.indexOf(view);
+    view = views[(i + dir + views.length) % views.length];
+    if (view === 'art') return;
+    // Called from the swipe's pointerup, so the audio graph can start inside a gesture.
+    analyser(true);
+    if (!Visualizer) import('./Visualizer.svelte').then((m) => (Visualizer = m.default));
+  }
+
+  function setFull(on: boolean) {
+    full = on;
+    if (on) document.documentElement.requestFullscreen?.().catch(() => {});
+    else if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  }
+
+  let swipe: { x: number; y: number } | null = null;
+  let lastTap = 0;
+
+  function onpointerup(e: PointerEvent) {
+    if (!swipe || !settings.visualizer) return;
+    const dx = e.clientX - swipe.x;
+    const dy = e.clientY - swipe.y;
+    swipe = null;
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      step(dx < 0 ? 1 : -1);
+      lastTap = 0;
+    } else if (view !== 'art' && Math.abs(dx) < 12 && Math.abs(dy) < 12) {
+      if (e.timeStamp - lastTap < 350) {
+        setFull(!full);
+        lastTap = 0;
+      } else lastTap = e.timeStamp;
+    }
+  }
+
+  function onkeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') {
+      if (full) setFull(false);
+      else close();
+    } else if (settings.visualizer && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !(e.target instanceof HTMLInputElement)) {
+      step(e.key === 'ArrowRight' ? 1 : -1);
+    }
+  }
 
   function close() {
+    setFull(false);
     player.expanded = false;
     showQueue = false;
   }
 </script>
 
-<svelte:window bind:innerHeight onkeydown={(e) => e.key === 'Escape' && close()} />
+<svelte:window {onkeydown} />
+<svelte:document onfullscreenchange={() => !document.fullscreenElement && (full = false)} />
 
 {#if track}
   <div class="np" role="dialog" aria-label="Now playing">
@@ -51,8 +102,29 @@
         </ol>
       </div>
     {:else}
-      <div class="art"><Artwork item={track} size={800} /></div>
-      {#if settings.visualizer && innerHeight > 500}<Visualizer />{/if}
+      <div
+        class="art"
+        role="group"
+        aria-roledescription="carousel"
+        aria-label="Artwork and visualizer. Swipe or use arrow keys to switch."
+        class:swipeable={settings.visualizer}
+        class:full
+        onpointerdown={(e) => (swipe = { x: e.clientX, y: e.clientY })}
+        {onpointerup}
+        onpointercancel={() => (swipe = null)}
+      >
+        {#if settings.visualizer && view !== 'art'}
+          <div class="vis">{#if Visualizer}<Visualizer mode={view} />{/if}</div>
+          {#if full}<button class="icon-btn exit" onclick={() => setFull(false)} aria-label="Exit full screen"><Icon name="close" /></button>{/if}
+        {:else}
+          <Artwork item={track} size={800} />
+        {/if}
+      </div>
+      {#if settings.visualizer}
+        <div class="dots" aria-label="Swipe the artwork to switch views">
+          {#each ['art', 'spectrum', 'scope'] as v (v)}<span class:on={view === v}></span>{/each}
+        </div>
+      {/if}
       <div class="meta">
         <div class="title ellipsis">{track.Name}</div>
         <div class="muted ellipsis">
@@ -124,6 +196,7 @@
     font-size: 0.85rem;
   }
   .art {
+    position: relative;
     flex: 1;
     min-height: 0;
     display: flex;
@@ -134,6 +207,52 @@
   .art :global(.art) {
     width: min(100%, 50dvh);
     box-shadow: 0 10px 40px rgb(0 0 0 / 0.5);
+  }
+  .swipeable {
+    /* we handle horizontal swipes; also disables double-tap zoom */
+    touch-action: pan-y;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .vis {
+    position: absolute;
+    inset: 16px 0;
+  }
+  .art.full {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    padding: 0;
+    background: #000;
+  }
+  .art.full .vis {
+    inset: var(--safe-t) 0 var(--safe-b);
+  }
+  .art.full .vis :global(canvas) {
+    border-radius: 0;
+  }
+  .exit {
+    position: absolute;
+    top: calc(var(--safe-t) + 8px);
+    right: 8px;
+    color: #fff;
+    opacity: 0.6;
+  }
+  .dots {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-top: -6px;
+  }
+  .dots span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+    opacity: 0.4;
+  }
+  .dots span.on {
+    opacity: 1;
   }
   .meta {
     padding: 8px 0;

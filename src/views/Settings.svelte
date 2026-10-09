@@ -10,7 +10,6 @@
     settings.downloadFormat;
     settings.downloadBitrate;
     settings.visualizer;
-    settings.visualizerMode;
     saveSettings();
   });
 
@@ -83,7 +82,7 @@
       <input type="checkbox" bind:checked={settings.visualizer} />
       Winamp-style visualizer
     </label>
-    <p class="muted small">Tap the visualizer to switch between spectrum analyzer and oscilloscope. When you turn it on, streamed music shows from the next track.</p>
+    <p class="muted small">Swipe the artwork on Now Playing to show the spectrum analyzer, then the oscilloscope. Double-tap a visualizer for full screen. When you turn it on, streamed music shows from the next track.</p>
     {#if isIOS}
       <p class="muted small">On iPhone and iPad the visualizer can stop music when the app is in the background or the screen locks. Once it has run, reload the app to restore normal background playback.</p>
     {/if}

@@ -19,7 +19,6 @@ export interface Settings {
   downloadFormat: 'transcoded' | 'original';
   downloadBitrate: 320 | 192 | 128;
   visualizer: boolean;
-  visualizerMode: 'spectrum' | 'scope';
 }
 
 /** iOS (including iPadOS, which reports itself as a Mac) */
@@ -35,7 +34,6 @@ const defaultSettings: Settings = {
   downloadFormat: 'transcoded',
   downloadBitrate: 192,
   visualizer: !isIOS,
-  visualizerMode: 'spectrum',
 };
 
 function load<T>(key: string): T | null {
