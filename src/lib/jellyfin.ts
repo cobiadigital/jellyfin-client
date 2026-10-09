@@ -1,5 +1,6 @@
 import { auth, deviceId, settings, type Session } from './session.svelte';
 import { cachedJson } from './cache';
+import { demoArtUrl, demoToneUrl } from './demo-media';
 
 /** The subset of Jellyfin's BaseItemDto this app uses. */
 export interface Item {
@@ -69,6 +70,8 @@ function requireSession(): Session {
 }
 
 async function request<T>(path: string, init: RequestInit = {}, session = requireSession()): Promise<T> {
+  // Demo sessions are answered by an in-memory library, loaded on first use.
+  if (session.demo) return (await import('./demo-api')).handle<T>(path, init);
   const res = await fetch(`${session.server}${path}`, {
     ...init,
     headers: { Authorization: authHeader(session.token), 'Content-Type': 'application/json', ...init.headers },
@@ -88,6 +91,7 @@ function qs(params: Record<string, string | number | boolean | undefined>) {
 function get<T>(path: string, params: Record<string, string | number | boolean | undefined> = {}) {
   const s = requireSession();
   const full = `${path}?${qs(params)}`;
+  if (s.demo) return request<T>(full); // demo data is in memory: nothing to cache
   return cachedJson<T>(`${s.userId}:${full}`, () => request<T>(full));
 }
 
@@ -234,6 +238,7 @@ export function createPlaylist(name: string, itemIds: string[]) {
 export function imageUrl(item: Item | undefined, size = 300): string | null {
   const s = auth.session;
   if (!s || !item) return null;
+  if (s.demo) return demoArtUrl(item.ImageTags?.Primary ? item.Id : item.AlbumId);
   let id: string | undefined;
   let tag: string | undefined;
   if (item.ImageTags?.Primary) {
@@ -265,6 +270,7 @@ const directPlayContainers = (() => {
 
 export function streamUrl(trackId: string): string {
   const s = requireSession();
+  if (s.demo) return demoToneUrl(trackId);
   const q = settings.streamQuality;
   return `${s.server}/Audio/${trackId}/universal?${qs({
     UserId: s.userId,
@@ -281,6 +287,7 @@ export function streamUrl(trackId: string): string {
 /** A small mono MP3 of the track, only used to compute the visualizer. */
 export function analysisUrl(trackId: string, sampleRate: number): string {
   const s = requireSession();
+  if (s.demo) return demoToneUrl(trackId);
   return `${s.server}/Audio/${trackId}/stream.mp3?${qs({ AudioCodec: 'mp3', AudioBitRate: 64000, AudioSampleRate: sampleRate, AudioChannels: 1, ApiKey: s.token })}`;
 }
 

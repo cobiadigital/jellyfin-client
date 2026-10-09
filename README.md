@@ -10,6 +10,10 @@ Stack: Vite + Svelte 5 + TypeScript, a hand-written service worker, IndexedDB an
 - **Player**: mini player plus full-screen Now Playing, queue (jump, reorder, remove, clear, play next, add to queue), shuffle, repeat all/one, seek, and lock-screen / headset controls through the Media Session API. The queue and position are restored when you reopen the app.
 - **Offline**: download albums or playlists, as transcoded AAC (128/192/320 kbps) or original files (a setting). Downloaded tracks play from the device automatically. Pages you've opened before also work offline.
 
+## Demo mode
+
+Tap **Try demo** on the sign-in screen, or open `/#/demo` on any deployment or preview URL, to browse a built-in sample library with no server or login. Playback uses short generated tones, and downloads are turned off. Demo mode never stores a token, contacts a server, or writes to the app's IndexedDB or Cache Storage. Use **Exit demo** (top bar or Settings) to return to sign-in.
+
 ## How local storage works
 
 | What | Where | Why |

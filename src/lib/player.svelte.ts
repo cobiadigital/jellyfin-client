@@ -1,6 +1,7 @@
 import { getState, setState } from './db';
 import { downloads, offlineAudioUrl } from './downloads.svelte';
 import { imageUrl, streamUrl, type Item } from './jellyfin';
+import { isDemo } from './session.svelte';
 
 export type Repeat = 'off' | 'all' | 'one';
 
@@ -287,6 +288,7 @@ if ('mediaSession' in navigator) {
 // ---------- persistence ----------
 
 function persist() {
+  if (isDemo()) return; // demo sessions never write to the saved queue
   lastSaved = Date.now();
   const saved: SavedQueue = {
     queue: player.queue,
@@ -301,6 +303,7 @@ function persist() {
 
 /** Restore the last queue (paused) when the app opens. */
 export async function restoreQueue() {
+  if (isDemo()) return;
   const saved = await getState<SavedQueue>('queue').catch(() => undefined);
   if (!saved?.queue?.length || saved.index < 0) return;
   player.queue = saved.queue;

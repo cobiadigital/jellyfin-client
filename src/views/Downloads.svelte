@@ -1,6 +1,7 @@
 <script lang="ts">
   import { dismissJob, downloads, listCollections, refreshUsage, removeAll, removeCollection, requestPersistence } from '../lib/downloads.svelte';
   import { bytes } from '../lib/format';
+  import { isDemo } from '../lib/session.svelte';
   import { href } from '../lib/router.svelte';
   import Artwork from '../components/Artwork.svelte';
   import Icon from '../components/Icon.svelte';
@@ -9,12 +10,14 @@
   let rows = $state<Row[]>([]);
 
   // Re-list whenever the set of downloaded collections or active jobs changes.
+  const demo = isDemo();
   $effect(() => {
+    if (demo) return;
     downloads.collections;
     downloads.jobs.length;
     listCollections().then((r) => (rows = r));
   });
-  refreshUsage();
+  if (!demo) refreshUsage();
 
   async function remove(row: Row) {
     if (confirm(`Remove "${row.item.Name}" from this device?`)) await removeCollection(row.id);
@@ -27,6 +30,9 @@
 
 <div class="page">
   <h1 class="page-title">Downloads</h1>
+  {#if demo}
+    <p class="muted">Downloads are turned off in demo mode, so nothing here touches this device's offline storage.</p>
+  {:else}
 
   <section class="storage">
     <div class="usage">
@@ -73,6 +79,7 @@
     <button class="btn danger" onclick={wipe}>Remove all downloads</button>
   {:else if !downloads.jobs.length}
     <p class="muted">Nothing downloaded yet. Open an album or playlist and tap <Icon name="download" size={16} /> to keep a copy on this device.</p>
+  {/if}
   {/if}
 </div>
 
