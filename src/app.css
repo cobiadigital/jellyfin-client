@@ -201,10 +201,6 @@ select:focus {
   text-align: left;
 }
 
-.sheet [role='menuitem']:disabled {
-  opacity: 0.55;
-}
-
 .sheet [role='menuitem']:active {
   background: var(--surface-2);
 }
