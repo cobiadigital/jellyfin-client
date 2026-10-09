@@ -83,7 +83,7 @@
       Winamp-style visualizer
     </label>
     <p class="muted small">Swipe the artwork on Now Playing to show the spectrum analyzer, then the oscilloscope. Double-tap a visualizer for full screen.</p>
-    <p class="muted small">While a visualizer is on screen it streams a second, silent copy of the track to analyse, so it uses extra data. Downloaded tracks don't.</p>
+    <p class="muted small">To draw it, the app downloads a small low-quality copy of each streamed track you visualize (about 2–3 MB per 5 minutes). Downloaded tracks use no extra data.</p>
   </section>
 
   <section>

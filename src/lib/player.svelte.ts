@@ -1,7 +1,6 @@
 import { getState, setState } from './db';
 import { downloads, offlineAudioUrl } from './downloads.svelte';
 import { imageUrl, streamUrl, type Item } from './jellyfin';
-import { deviceId } from './session.svelte';
 
 export type Repeat = 'off' | 'all' | 'one';
 
@@ -72,7 +71,6 @@ async function load(index: number, autoplay: boolean, startAt = 0) {
 
 export async function play() {
   if (player.index < 0 && player.queue.length) return load(0, true);
-  kickTwin();
   try {
     await audio.play();
   } catch (err) {
@@ -248,88 +246,10 @@ audio.addEventListener('error', () => {
   player.error = `Couldn't play ${t?.Name ?? 'track'}${player.offlineSource ? ' (downloaded copy)' : navigator.onLine ? '' : ' (offline, not downloaded)'}`;
 });
 
-// ---------- visualizer audio graph ----------
-// The audible element never goes through Web Audio: routing it there is permanent, and
-// mobile browsers suspend an AudioContext when the app is backgrounded, which would
-// silence the music. Instead a silent twin element follows the player and feeds the
-// analyser, and only while a visualizer is on screen and the app is in the foreground.
-// Built lazily from a user gesture (a context created without one starts suspended).
-
-let audioCtx: AudioContext | null = null;
-let analyserNode: AnalyserNode | null = null;
-let twin: HTMLAudioElement | null = null;
-let twinTrack: string | null = null;
-let twinWanted = false;
-
-/** The shared analyser, building the audio graph if allowed. `gesture`: called from a tap. */
-export function analyser(gesture = false): AnalyserNode | null {
-  if (!analyserNode) {
-    const activated = gesture || (navigator.userActivation?.isActive ?? false);
-    if (!activated || typeof AudioContext === 'undefined') return null;
-    try {
-      twin = new Audio();
-      twin.crossOrigin = 'anonymous'; // Web Audio hears silence from non-CORS streams
-      twin.preload = 'auto';
-      audioCtx = new AudioContext();
-      const node = audioCtx.createAnalyser();
-      node.fftSize = 2048;
-      node.smoothingTimeConstant = 0.5;
-      node.minDecibels = -90;
-      node.maxDecibels = -20;
-      // Analyse, then discard: the twin must never be heard.
-      const mute = audioCtx.createGain();
-      mute.gain.value = 0;
-      audioCtx.createMediaElementSource(twin).connect(node);
-      node.connect(mute).connect(audioCtx.destination);
-      analyserNode = node;
-    } catch {
-      return null;
-    }
-  }
-  twinWanted = true;
-  // Play inside this gesture so iOS lets the twin play later without one.
-  kickTwin();
-  syncTwin();
-  return analyserNode;
+/** Playback position in seconds, read live (the visualizer's clock). */
+export function position() {
+  return audio.currentTime;
 }
-
-/** The visualizer left the screen: stop the twin so nothing runs in the meantime. */
-export function releaseAnalyser() {
-  twinWanted = false;
-  sleepTwin();
-}
-
-function kickTwin() {
-  if (!twin || !twinWanted || document.hidden) return;
-  pointTwin();
-  if (twin.src) twin.play().catch(() => {});
-  if (audioCtx?.state !== 'running') audioCtx?.resume().catch(() => {});
-}
-
-function pointTwin() {
-  const t = current();
-  if (!twin || !t || twinTrack === t.Id) return;
-  twinTrack = t.Id;
-  // Same bytes as the player: the downloaded blob, or a second stream of the track
-  // (with its own device id so the server doesn't treat it as a replacement session).
-  twin.src = objectUrl ?? streamUrl(t.Id, deviceId + '-vis');
-}
-
-function syncTwin() {
-  if (!twin || !twinWanted || document.hidden || !isRealTrack()) return sleepTwin();
-  pointTwin();
-  if (audio.paused) return twin.pause();
-  if (Math.abs(twin.currentTime - audio.currentTime) > 0.25) twin.currentTime = audio.currentTime;
-  if (twin.paused) kickTwin();
-}
-
-function sleepTwin() {
-  twin?.pause();
-  if (audioCtx?.state === 'running') audioCtx.suspend().catch(() => {});
-}
-
-for (const e of ['playing', 'pause', 'seeked', 'timeupdate', 'emptied']) audio.addEventListener(e, syncTwin);
-document.addEventListener('visibilitychange', syncTwin);
 
 // ---------- lock screen / notification controls ----------
 

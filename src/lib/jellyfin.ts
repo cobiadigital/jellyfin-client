@@ -263,12 +263,12 @@ const directPlayContainers = (() => {
   return list.join(',');
 })();
 
-export function streamUrl(trackId: string, device = deviceId): string {
+export function streamUrl(trackId: string): string {
   const s = requireSession();
   const q = settings.streamQuality;
   return `${s.server}/Audio/${trackId}/universal?${qs({
     UserId: s.userId,
-    DeviceId: device,
+    DeviceId: deviceId,
     MaxStreamingBitrate: q === 'original' ? 999_999_999 : q * 1000,
     Container: directPlayContainers,
     TranscodingContainer: 'aac',
@@ -276,6 +276,12 @@ export function streamUrl(trackId: string, device = deviceId): string {
     AudioCodec: 'aac',
     ApiKey: s.token,
   })}`;
+}
+
+/** A small mono MP3 of the track, only used to compute the visualizer. */
+export function analysisUrl(trackId: string, sampleRate: number): string {
+  const s = requireSession();
+  return `${s.server}/Audio/${trackId}/stream.mp3?${qs({ AudioCodec: 'mp3', AudioBitRate: 64000, AudioSampleRate: sampleRate, AudioChannels: 1, ApiKey: s.token })}`;
 }
 
 export function downloadUrl(trackId: string, format: 'original' | 'transcoded', bitrate: number): string {
