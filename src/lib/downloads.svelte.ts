@@ -2,7 +2,7 @@ import { db, type CollectionRecord, type DownloadRecord } from './db';
 import { downloadUrl, type Item } from './jellyfin';
 import { isDemo, settings } from './session.svelte';
 import { showToast } from './toast.svelte';
-import { cachedAudioBlob, dropCached } from './streamcache.svelte';
+import { cachedAudioBlob, dropCached, streamCache } from './streamcache.svelte';
 
 /**
  * Offline storage for audio.
@@ -159,19 +159,46 @@ export async function persistCached(track: Item) {
     contentType,
     addedAt: Date.now(),
   });
+  downloads.tracks.add(track.Id);
+  downloads.tracks = new Set(downloads.tracks);
+  await addToSaved(track.Id);
+  await dropCached(track.Id);
+  await refreshUsage();
+}
+
+async function addToSaved(trackId: string) {
+  const d = await db();
   const saved = await d.get('collections', SAVED_ID);
   await d.put('collections', {
     id: SAVED_ID,
     item: { Id: SAVED_ID, Name: 'Saved songs', Type: 'Playlist' },
-    trackIds: [...new Set([...(saved?.trackIds ?? []), track.Id])],
+    trackIds: [...new Set([...(saved?.trackIds ?? []), trackId])],
     addedAt: saved?.addedAt ?? Date.now(),
   } satisfies CollectionRecord);
-  downloads.tracks.add(track.Id);
-  downloads.tracks = new Set(downloads.tracks);
   downloads.collections.add(SAVED_ID);
   downloads.collections = new Set(downloads.collections);
-  await dropCached(track.Id);
-  await refreshUsage();
+}
+
+/** Download a single song (from the song menu). A cached copy is reused instead of refetched. */
+export async function downloadSong(track: Item) {
+  if (isDemo()) return showToast('Downloads are turned off in demo mode');
+  if (downloads.tracks.has(track.Id)) return;
+  if (streamCache.tracks.has(track.Id)) {
+    await persistCached(track);
+    return showToast(`Downloaded "${track.Name}"`);
+  }
+  showToast(`Downloading "${track.Name}"…`);
+  try {
+    if (!downloads.persisted) await requestPersistence();
+    const cache = await caches.open(AUDIO_CACHE);
+    const { downloadFormat: format, downloadBitrate: bitrate } = settings;
+    await downloadTrack(cache, track, SAVED_ID, format, bitrate, { collectionId: SAVED_ID, name: track.Name, done: 0, total: 1, currentBytes: 0 });
+    await addToSaved(track.Id);
+    await refreshUsage();
+    showToast(`Downloaded "${track.Name}"`);
+  } catch (err) {
+    showToast(`Couldn't download "${track.Name}": ${(err as Error).message}`);
+  }
 }
 
 export function dismissJob(collectionId: string) {
