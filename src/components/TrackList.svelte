@@ -6,11 +6,13 @@
   import { href } from '../lib/router.svelte';
   import Artwork from './Artwork.svelte';
   import Icon from './Icon.svelte';
+  import PlaylistPicker from './PlaylistPicker.svelte';
 
   /** showArt: playlists/search show artwork; albums show track numbers. */
   let { tracks, showArt = false }: { tracks: Item[]; showArt?: boolean } = $props();
 
   let menuFor = $state<Item | null>(null);
+  let pickerFor = $state<Item | null>(null);
   const multiDisc = $derived(new Set(tracks.map((t) => t.ParentIndexNumber ?? 1)).size > 1);
   const playingId = $derived(current()?.Id);
 </script>
@@ -52,6 +54,7 @@
       </div>
       <button role="menuitem" onclick={() => (playNext([t]), (menuFor = null))}><Icon name="playNext" /> Play next</button>
       <button role="menuitem" onclick={() => (addToQueue([t]), (menuFor = null))}><Icon name="queueAdd" /> Add to queue</button>
+      <button role="menuitem" onclick={() => ((pickerFor = t), (menuFor = null))}><Icon name="playlistAdd" /> Add to playlist</button>
       {#if t.AlbumId}
         <a role="menuitem" href={href('album', t.AlbumId)} onclick={() => ((menuFor = null), (player.expanded = false))}><Icon name="album" /> Go to album</a>
       {/if}
@@ -60,6 +63,10 @@
       {/if}
     </div>
   </div>
+{/if}
+
+{#if pickerFor}
+  <PlaylistPicker track={pickerFor} onclose={() => (pickerFor = null)} />
 {/if}
 
 <style>
@@ -119,40 +126,5 @@
   .dl {
     color: var(--accent);
     vertical-align: -2px;
-  }
-  .scrim {
-    position: fixed;
-    inset: 0;
-    background: rgb(0 0 0 / 0.5);
-    z-index: 50;
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
-  }
-  .sheet {
-    width: 100%;
-    max-width: 520px;
-    background: var(--surface);
-    border-radius: 16px 16px 0 0;
-    padding: 12px 8px calc(12px + var(--safe-b));
-  }
-  .sheet-head {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    padding: 4px 8px 12px;
-    border-bottom: 1px solid var(--surface-2);
-    margin-bottom: 4px;
-  }
-  .sheet [role='menuitem'] {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    width: 100%;
-    padding: 14px 12px;
-    border-radius: 8px;
-  }
-  .sheet [role='menuitem']:active {
-    background: var(--surface-2);
   }
 </style>

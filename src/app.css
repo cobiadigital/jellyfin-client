@@ -160,3 +160,51 @@ select:focus {
   font-size: 1.1rem;
   margin: 24px 0 10px;
 }
+
+/* Bottom sheets (track menu, playlist picker) */
+.scrim {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 0.5);
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.sheet {
+  width: 100%;
+  max-width: 520px;
+  max-height: 85dvh;
+  overflow-y: auto;
+  background: var(--surface);
+  border-radius: 16px 16px 0 0;
+  padding: 12px 8px calc(12px + var(--safe-b));
+}
+
+.sheet-head {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 4px 8px 12px;
+  border-bottom: 1px solid var(--surface-2);
+  margin-bottom: 4px;
+}
+
+.sheet [role='menuitem'] {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 14px 12px;
+  border-radius: 8px;
+  text-align: left;
+}
+
+.sheet [role='menuitem']:active {
+  background: var(--surface-2);
+}
+
+.sheet [role='menuitem']:disabled {
+  opacity: 0.5;
+}

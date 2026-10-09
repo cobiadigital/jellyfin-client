@@ -205,6 +205,30 @@ export async function search(term: string) {
   return { artists: artists.Items, albums: albums.Items, tracks: tracks.Items, playlists: playlists.Items };
 }
 
+// ---------- playlists ----------
+
+/** The user's audio playlists, fresh from the server (needs a connection). */
+export async function userPlaylists() {
+  const s = requireSession();
+  const r = await request<ItemsResult>(
+    `/Items?${qs({ userId: s.userId, IncludeItemTypes: 'Playlist', MediaTypes: 'Audio', Recursive: true, SortBy: 'SortName', Fields: 'ChildCount', ImageTypeLimit: 1, EnableImageTypes: 'Primary' })}`,
+  );
+  return r.Items;
+}
+
+export function addToPlaylist(playlistId: string, itemIds: string[]) {
+  const s = requireSession();
+  return request<void>(`/Playlists/${playlistId}/Items?${qs({ ids: itemIds.join(','), userId: s.userId })}`, { method: 'POST' });
+}
+
+export function createPlaylist(name: string, itemIds: string[]) {
+  const s = requireSession();
+  return request<{ Id: string }>('/Playlists', {
+    method: 'POST',
+    body: JSON.stringify({ Name: name, Ids: itemIds, UserId: s.userId, MediaType: 'Audio' }),
+  });
+}
+
 // ---------- urls ----------
 
 export function imageUrl(item: Item | undefined, size = 300): string | null {

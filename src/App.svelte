@@ -8,6 +8,7 @@
   import Icon, { type IconName } from './components/Icon.svelte';
   import MiniPlayer from './components/MiniPlayer.svelte';
   import NowPlaying from './components/NowPlaying.svelte';
+  import Toast from './components/Toast.svelte';
   import Login from './views/Login.svelte';
   import Library from './views/Library.svelte';
   import Collection from './views/Collection.svelte';
@@ -59,6 +60,7 @@
 
   <MiniPlayer />
   {#if player.expanded}<NowPlaying />{/if}
+  <Toast />
 
   <nav class="bottom">
     {#each nav as [name, label, icon]}
