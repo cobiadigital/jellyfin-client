@@ -2,7 +2,7 @@ import { db, type CollectionRecord, type DownloadRecord } from './db';
 import { downloadUrl, type Item } from './jellyfin';
 import { isDemo, settings } from './session.svelte';
 import { showToast } from './toast.svelte';
-import { dropCached } from './streamcache.svelte';
+import { cachedAudioBlob, dropCached, streamCache } from './streamcache.svelte';
 
 /**
  * Offline storage for audio.
@@ -13,6 +13,8 @@ import { dropCached } from './streamcache.svelte';
  */
 
 const AUDIO_CACHE = 'audio-v1';
+/** Collection that holds songs promoted from the stream cache one at a time. */
+export const SAVED_ID = '__saved-songs';
 const key = (trackId: string) => `/__offline-audio/${trackId}`;
 
 export interface Job {
@@ -137,6 +139,66 @@ async function downloadTrack(cache: Cache, track: Item, parentId: string, format
   downloads.tracks.add(track.Id);
   downloads.tracks = new Set(downloads.tracks);
   dropCached(track.Id).catch(() => {}); // the download supersedes any cached copy
+}
+
+/** Turn a cached song into a download, reusing its bytes (no refetch). */
+export async function persistCached(track: Item) {
+  if (isDemo()) return;
+  const blob = await cachedAudioBlob(track.Id);
+  if (!blob) return showToast("That song isn't cached any more");
+  if (!downloads.persisted) await requestPersistence();
+  const d = await db();
+  const contentType = blob.type || 'audio/aac';
+  await (await caches.open(AUDIO_CACHE)).put(key(track.Id), new Response(blob, { headers: { 'Content-Type': contentType, 'Content-Length': String(blob.size) } }));
+  await d.put('downloads', {
+    id: track.Id,
+    track: plain(track),
+    parentId: SAVED_ID,
+    format: 'transcoded',
+    bytes: blob.size,
+    contentType,
+    addedAt: Date.now(),
+  });
+  downloads.tracks.add(track.Id);
+  downloads.tracks = new Set(downloads.tracks);
+  await addToSaved(track.Id);
+  await dropCached(track.Id);
+  await refreshUsage();
+}
+
+async function addToSaved(trackId: string) {
+  const d = await db();
+  const saved = await d.get('collections', SAVED_ID);
+  await d.put('collections', {
+    id: SAVED_ID,
+    item: { Id: SAVED_ID, Name: 'Saved songs', Type: 'Playlist' },
+    trackIds: [...new Set([...(saved?.trackIds ?? []), trackId])],
+    addedAt: saved?.addedAt ?? Date.now(),
+  } satisfies CollectionRecord);
+  downloads.collections.add(SAVED_ID);
+  downloads.collections = new Set(downloads.collections);
+}
+
+/** Download a single song (from the song menu). A cached copy is reused instead of refetched. */
+export async function downloadSong(track: Item) {
+  if (isDemo()) return showToast('Downloads are turned off in demo mode');
+  if (downloads.tracks.has(track.Id)) return;
+  if (streamCache.tracks.has(track.Id)) {
+    await persistCached(track);
+    return showToast(`Downloaded "${track.Name}"`);
+  }
+  showToast(`Downloading "${track.Name}"…`);
+  try {
+    if (!downloads.persisted) await requestPersistence();
+    const cache = await caches.open(AUDIO_CACHE);
+    const { downloadFormat: format, downloadBitrate: bitrate } = settings;
+    await downloadTrack(cache, track, SAVED_ID, format, bitrate, { collectionId: SAVED_ID, name: track.Name, done: 0, total: 1, currentBytes: 0 });
+    await addToSaved(track.Id);
+    await refreshUsage();
+    showToast(`Downloaded "${track.Name}"`);
+  } catch (err) {
+    showToast(`Couldn't download "${track.Name}": ${(err as Error).message}`);
+  }
 }
 
 export function dismissJob(collectionId: string) {

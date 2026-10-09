@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Item } from '../lib/jellyfin';
-  import { downloads } from '../lib/downloads.svelte';
+  import { downloads, downloadSong } from '../lib/downloads.svelte';
   import { streamCache } from '../lib/streamcache.svelte';
   import { addToQueue, current, playNext, playTracks, player, ticksToSeconds } from '../lib/player.svelte';
   import { duration, artistLine } from '../lib/format';
@@ -56,6 +56,11 @@
       <button role="menuitem" onclick={() => (playNext([t]), (menuFor = null))}><Icon name="playNext" /> Play next</button>
       <button role="menuitem" onclick={() => (addToQueue([t]), (menuFor = null))}><Icon name="queueAdd" /> Add to queue</button>
       <button role="menuitem" onclick={() => ((pickerFor = t), (menuFor = null))}><Icon name="playlistAdd" /> Add to playlist</button>
+      {#if downloads.tracks.has(t.Id)}
+        <button role="menuitem" disabled><Icon name="downloaded" /> Downloaded</button>
+      {:else}
+        <button role="menuitem" onclick={() => (downloadSong(t), (menuFor = null))}><Icon name="download" /> Download</button>
+      {/if}
       {#if t.AlbumId}
         <a role="menuitem" href={href('album', t.AlbumId)} onclick={() => ((menuFor = null), (player.expanded = false))}><Icon name="album" /> Go to album</a>
       {/if}

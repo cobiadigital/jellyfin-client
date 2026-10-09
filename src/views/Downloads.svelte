@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { dismissJob, downloads, listCollections, refreshUsage, removeAll, removeCollection, requestPersistence } from '../lib/downloads.svelte';
+  import { dismissJob, downloads, listCollections, refreshUsage, removeAll, removeCollection, requestPersistence, persistCached, SAVED_ID } from '../lib/downloads.svelte';
+  import { dropCached, listCached, streamCache } from '../lib/streamcache.svelte';
+  import { artistLine } from '../lib/format';
   import { bytes } from '../lib/format';
   import { isDemo } from '../lib/session.svelte';
   import { href } from '../lib/router.svelte';
@@ -18,6 +20,13 @@
     listCollections().then((r) => (rows = r));
   });
   if (!demo) refreshUsage();
+
+  let cached = $state<Awaited<ReturnType<typeof listCached>>>([]);
+  $effect(() => {
+    if (demo) return;
+    streamCache.tracks;
+    listCached().then((r) => (cached = r));
+  });
 
   async function remove(row: Row) {
     if (confirm(`Remove "${row.item.Name}" from this device?`)) await removeCollection(row.id);
@@ -65,13 +74,23 @@
     <ul class="list">
       {#each rows as row (row.id)}
         <li>
-          <a class="main" href={href(row.item.Type === 'Playlist' ? 'playlist' : 'album', row.id)}>
-            <span class="thumb"><Artwork item={row.item} size={96} /></span>
-            <span class="text">
-              <span class="ellipsis">{row.item.Name}</span>
-              <span class="muted small ellipsis">{row.trackIds.length} tracks · {bytes(row.bytes)}</span>
-            </span>
-          </a>
+          {#if row.id === SAVED_ID}
+            <div class="main">
+              <span class="thumb"><Artwork item={undefined} size={96} fallback="downloaded" /></span>
+              <span class="text">
+                <span class="ellipsis">Saved songs</span>
+                <span class="muted small ellipsis">{row.trackIds.length} tracks · {bytes(row.bytes)}</span>
+              </span>
+            </div>
+          {:else}
+            <a class="main" href={href(row.item.Type === 'Playlist' ? 'playlist' : 'album', row.id)}>
+              <span class="thumb"><Artwork item={row.item} size={96} /></span>
+              <span class="text">
+                <span class="ellipsis">{row.item.Name}</span>
+                <span class="muted small ellipsis">{row.trackIds.length} tracks · {bytes(row.bytes)}</span>
+              </span>
+            </a>
+          {/if}
           <button class="icon-btn" aria-label="Remove" onclick={() => remove(row)}><Icon name="delete" /></button>
         </li>
       {/each}
@@ -79,6 +98,26 @@
     <button class="btn danger" onclick={wipe}>Remove all downloads</button>
   {:else if !downloads.jobs.length}
     <p class="muted">Nothing downloaded yet. Open an album or playlist and tap <Icon name="download" size={16} /> to keep a copy on this device.</p>
+  {/if}
+
+  {#if cached.length}
+    <h2 class="section-title">Cached songs</h2>
+    <p class="muted small">Saved automatically from streaming and removed when space is needed. Tap <Icon name="download" size={14} /> to keep one as a download.</p>
+    <ul class="list">
+      {#each cached as row (row.id)}
+        <li>
+          <div class="main">
+            <span class="thumb"><Artwork item={row.track} size={96} /></span>
+            <span class="text">
+              <span class="ellipsis">{row.track.Name}</span>
+              <span class="muted small ellipsis">{artistLine(row.track)} · {bytes(row.bytes)}</span>
+            </span>
+          </div>
+          <button class="icon-btn" aria-label="Keep as download" onclick={() => persistCached(row.track)}><Icon name="download" /></button>
+          <button class="icon-btn" aria-label="Remove from cache" onclick={() => dropCached(row.id)}><Icon name="delete" /></button>
+        </li>
+      {/each}
+    </ul>
   {/if}
   {/if}
 </div>
@@ -139,6 +178,10 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
+  }
+  .section-title {
+    font-size: 1.1rem;
+    margin: 8px 0 4px;
   }
   .danger {
     color: var(--danger);
