@@ -1,27 +1,83 @@
 <script lang="ts">
-  import { clearQueue, current, cycleRepeat, jumpTo, move, next, player, previous, removeAt, seek, toggle, toggleShuffle } from '../lib/player.svelte';
+  import type { Component } from 'svelte';
+  import { analyser, clearQueue, current, cycleRepeat, jumpTo, move, next, player, previous, removeAt, seek, toggle, toggleShuffle } from '../lib/player.svelte';
   import { artistLine, duration } from '../lib/format';
   import { href } from '../lib/router.svelte';
-  import { settings } from '../lib/session.svelte';
+  import { saveSettings, settings } from '../lib/session.svelte';
   import Artwork from './Artwork.svelte';
   import Icon from './Icon.svelte';
-  import Visualizer from './Visualizer.svelte';
 
   const track = $derived(current());
   let showQueue = $state(false);
   // While dragging the slider, show the drag position instead of the live time.
   let scrub = $state<number | null>(null);
   const shownTime = $derived(scrub ?? player.time);
-  // Short screens (phone landscape) have no room for the visualizer.
-  let innerHeight = $state(window.innerHeight);
+
+  // Swiping the artwork cycles artwork → spectrum → scope; double-tap a visualizer for
+  // full screen. The last view is remembered. Nothing visualizer-related loads while the
+  // setting is off or the artwork is showing.
+  type View = 'art' | 'spectrum' | 'scope';
+  const view = $derived<View>(settings.visualizer ? settings.nowPlayingView : 'art');
+  let full = $state(false);
+  let Visualizer = $state<Component<{ mode: 'spectrum' | 'scope' }> | null>(null);
+  const views = $derived<View[]>(full ? ['spectrum', 'scope'] : ['art', 'spectrum', 'scope']);
+
+  $effect(() => {
+    if (view !== 'art' && !Visualizer) import('./Visualizer.svelte').then((m) => (Visualizer = m.default));
+  });
+
+  function step(dir: number) {
+    const i = views.indexOf(view);
+    settings.nowPlayingView = views[(i + dir + views.length) % views.length];
+    saveSettings();
+    // Called from a tap or swipe, so the audio graph can start inside a user gesture.
+    if (settings.nowPlayingView !== 'art') analyser(true);
+  }
+
+  function setFull(on: boolean) {
+    full = on;
+    if (on) document.documentElement.requestFullscreen?.().catch(() => {});
+    else if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  }
+
+  let swipe: { x: number; y: number } | null = null;
+  let lastTap = 0;
+
+  function onpointerup(e: PointerEvent) {
+    if (!swipe || !settings.visualizer) return;
+    const dx = e.clientX - swipe.x;
+    const dy = e.clientY - swipe.y;
+    swipe = null;
+    if (view !== 'art') analyser(true);
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      step(dx < 0 ? 1 : -1);
+      lastTap = 0;
+    } else if (view !== 'art' && Math.abs(dx) < 12 && Math.abs(dy) < 12) {
+      if (e.timeStamp - lastTap < 350) {
+        setFull(!full);
+        lastTap = 0;
+      } else lastTap = e.timeStamp;
+    }
+  }
+
+  function onkeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') {
+      if (full) setFull(false);
+      else close();
+    } else if (settings.visualizer && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !(e.target instanceof HTMLInputElement)) {
+      step(e.key === 'ArrowRight' ? 1 : -1);
+    }
+  }
 
   function close() {
+    setFull(false);
     player.expanded = false;
     showQueue = false;
   }
 </script>
 
-<svelte:window bind:innerHeight onkeydown={(e) => e.key === 'Escape' && close()} />
+<svelte:window {onkeydown} />
+<svelte:document onfullscreenchange={() => !document.fullscreenElement && (full = false)} />
 
 {#if track}
   <div class="np" role="dialog" aria-label="Now playing">
@@ -51,8 +107,29 @@
         </ol>
       </div>
     {:else}
-      <div class="art"><Artwork item={track} size={800} /></div>
-      {#if settings.visualizer && innerHeight > 500}<Visualizer />{/if}
+      <div
+        class="stage"
+        role="group"
+        aria-roledescription="carousel"
+        aria-label="Artwork and visualizer. Swipe or use arrow keys to switch."
+        class:swipeable={settings.visualizer}
+        class:full
+        onpointerdown={(e) => (swipe = { x: e.clientX, y: e.clientY })}
+        {onpointerup}
+        onpointercancel={() => (swipe = null)}
+      >
+        {#if settings.visualizer && view !== 'art'}
+          <div class="vis">{#if Visualizer}<Visualizer mode={view} />{/if}</div>
+          {#if full}<button class="icon-btn exit" onclick={() => setFull(false)} aria-label="Exit full screen"><Icon name="close" /></button>{/if}
+        {:else}
+          <Artwork item={track} size={800} />
+        {/if}
+        {#if settings.visualizer && !full}
+          <div class="dots" aria-hidden="true">
+            {#each ['art', 'spectrum', 'scope'] as v (v)}<span class:on={view === v}></span>{/each}
+          </div>
+        {/if}
+      </div>
       <div class="meta">
         <div class="title ellipsis">{track.Name}</div>
         <div class="muted ellipsis">
@@ -113,6 +190,35 @@
       padding-right: calc(50vw - 260px);
     }
   }
+  /* Phone landscape: artwork on the left, track info and controls on the right. */
+  @media (orientation: landscape) and (max-height: 500px) {
+    .np {
+      display: grid;
+      grid-template-columns: minmax(0, 45%) minmax(0, 1fr);
+      grid-template-rows: auto 1fr auto auto auto;
+      grid-template-areas: 'header header' 'stage .' 'stage meta' 'stage seek' 'stage controls';
+      column-gap: 24px;
+      padding-left: max(20px, env(safe-area-inset-left));
+      padding-right: max(20px, env(safe-area-inset-right));
+    }
+    header {
+      grid-area: header;
+    }
+    .stage,
+    .queue {
+      grid-area: stage;
+      padding: 8px 0 16px;
+    }
+    .meta {
+      grid-area: meta;
+    }
+    .seek {
+      grid-area: seek;
+    }
+    .controls {
+      grid-area: controls;
+    }
+  }
   header {
     display: flex;
     align-items: center;
@@ -123,17 +229,71 @@
     text-align: center;
     font-size: 0.85rem;
   }
-  .art {
+  /* Fills the space left over by the title and controls; the artwork is the largest
+     square that fits in it (container units), so it never overlaps them. */
+  .stage {
+    position: relative;
     flex: 1;
     min-height: 0;
+    container-type: size;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 16px 0;
   }
-  .art :global(.art) {
-    width: min(100%, 50dvh);
+  .stage :global(.art) {
+    flex: none;
+    width: min(100cqw, 100cqh);
     box-shadow: 0 10px 40px rgb(0 0 0 / 0.5);
+  }
+  .swipeable {
+    /* we handle horizontal swipes; also disables double-tap zoom */
+    touch-action: pan-y;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .vis {
+    position: absolute;
+    inset: 16px 0;
+  }
+  .stage.full {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    padding: 0;
+    background: #000;
+  }
+  .stage.full .vis {
+    inset: var(--safe-t) 0 var(--safe-b);
+  }
+  .stage.full .vis :global(canvas) {
+    border-radius: 0;
+  }
+  .exit {
+    position: absolute;
+    top: calc(var(--safe-t) + 8px);
+    right: 8px;
+    color: #fff;
+    opacity: 0.6;
+  }
+  .dots {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 2px;
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+  }
+  .dots span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+    opacity: 0.4;
+  }
+  .dots span.on {
+    opacity: 1;
   }
   .meta {
     padding: 8px 0;
