@@ -2,6 +2,7 @@ import { db, type CollectionRecord, type DownloadRecord } from './db';
 import { downloadUrl, type Item } from './jellyfin';
 import { isDemo, settings } from './session.svelte';
 import { showToast } from './toast.svelte';
+import { dropCached } from './streamcache.svelte';
 
 /**
  * Offline storage for audio.
@@ -135,6 +136,7 @@ async function downloadTrack(cache: Cache, track: Item, parentId: string, format
   });
   downloads.tracks.add(track.Id);
   downloads.tracks = new Set(downloads.tracks);
+  dropCached(track.Id).catch(() => {}); // the download supersedes any cached copy
 }
 
 export function dismissJob(collectionId: string) {

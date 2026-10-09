@@ -1,5 +1,6 @@
 import { getState, setState } from './db';
 import { downloads, offlineAudioUrl } from './downloads.svelte';
+import { cacheStreamed, cachedAudioUrl, streamCache } from './streamcache.svelte';
 import { imageUrl, streamUrl, type Item } from './jellyfin';
 import { isDemo } from './session.svelte';
 
@@ -53,8 +54,9 @@ async function load(index: number, autoplay: boolean, startAt = 0) {
   // Prefer the local copy; fall back to streaming. Streams are set synchronously so
   // that play() still runs inside the user's tap (iOS blocks it after an await).
   let local: string | null = null;
-  if (downloads.tracks.has(track.Id)) {
-    local = await offlineAudioUrl(track.Id).catch(() => null);
+  const isDownloaded = downloads.tracks.has(track.Id);
+  if (isDownloaded || streamCache.tracks.has(track.Id)) {
+    local = await (isDownloaded ? offlineAudioUrl(track.Id) : cachedAudioUrl(track.Id)).catch(() => null);
     if (token !== loadToken) {
       if (local) URL.revokeObjectURL(local);
       return;
@@ -67,6 +69,12 @@ async function load(index: number, autoplay: boolean, startAt = 0) {
   if (startAt) audio.addEventListener('loadedmetadata', () => (audio.currentTime = startAt), { once: true });
   updateMediaSession(track);
   persist();
+  // Once a streamed track has actually been listened to, keep a copy for later.
+  if (!local && autoplay) {
+    setTimeout(() => {
+      if (token === loadToken && !audio.paused) cacheStreamed(track);
+    }, 5000);
+  }
   if (autoplay) await play();
 }
 

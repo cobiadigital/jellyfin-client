@@ -1,4 +1,5 @@
 import { offlineAudioBlob } from './downloads.svelte';
+import { cachedAudioBlob } from './streamcache.svelte';
 import { analysisUrl, type Item } from './jellyfin';
 import { ticksToSeconds } from './player.svelte';
 
@@ -35,7 +36,7 @@ async function load(track: Item): Promise<Decoded> {
   if (seconds > 90 * 60) throw new Error('Track too long to visualize');
   const rate = seconds > 20 * 60 ? 11025 : 22050;
 
-  const local = await offlineAudioBlob(track.Id).catch(() => null);
+  const local = (await offlineAudioBlob(track.Id).catch(() => null)) ?? (await cachedAudioBlob(track.Id).catch(() => null));
   let bytes: ArrayBuffer;
   if (local) bytes = await local.arrayBuffer();
   else {

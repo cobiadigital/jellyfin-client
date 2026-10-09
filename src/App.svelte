@@ -5,6 +5,7 @@
   import { route, href } from './lib/router.svelte';
   import { startCatalogSync } from './lib/catalog.svelte';
   import { initDownloads } from './lib/downloads.svelte';
+  import { initStreamCache } from './lib/streamcache.svelte';
   import { player, restoreQueue } from './lib/player.svelte';
   import type { LibraryKind } from './lib/jellyfin';
   import Icon, { type IconName } from './components/Icon.svelte';
@@ -43,6 +44,7 @@
 
   onMount(() => {
     initDownloads();
+    initStreamCache().catch(() => {});
     if (auth.session) restoreQueue();
   });
 </script>

@@ -6,11 +6,13 @@
   import { bytes } from '../lib/format';
   import { clearQueue } from '../lib/player.svelte';
   import { exitDemo } from '../lib/demo';
+  import { applyCacheLimit, clearStreamCache, streamCache } from '../lib/streamcache.svelte';
 
   $effect(() => {
     // Track every field so any change is saved.
     settings.streamQuality;
     settings.downloadFormat;
+    settings.cacheLimitMB;
     settings.downloadBitrate;
     settings.visualizer;
     saveSettings();
@@ -102,6 +104,30 @@
         <option value="128">Transcode to 128 kbps</option>
       </select>
     </label>
+  </section>
+
+  <section>
+    <h2>Stream cache</h2>
+    <label>
+      Storage limit
+      <select
+        value={String(settings.cacheLimitMB)}
+        onchange={(e) => {
+          settings.cacheLimitMB = +e.currentTarget.value;
+          applyCacheLimit();
+        }}
+      >
+        <option value="0">Off</option>
+        <option value="250">250 MB</option>
+        <option value="500">500 MB</option>
+        <option value="1024">1 GB</option>
+        <option value="2048">2 GB</option>
+        <option value="5120">5 GB</option>
+      </select>
+    </label>
+    <p>{streamCache.tracks.size.toLocaleString()} cached {streamCache.tracks.size === 1 ? 'song' : 'songs'} · {bytes(streamCache.bytes)}</p>
+    <p class="muted small">Songs you stream are saved here so they play again offline. When the limit is reached, the songs you played longest ago are removed first. Each song is fetched once more in the background (at up to 320 kbps AAC), which uses a little extra data. Downloads are separate and never removed automatically.</p>
+    <button class="btn" disabled={!streamCache.tracks.size} onclick={() => confirm('Clear all cached songs?') && clearStreamCache()}>Clear cache</button>
   </section>
 
   <section>
