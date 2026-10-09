@@ -1,5 +1,6 @@
 import { auth, deviceId, settings, type Session } from './session.svelte';
 import { cachedJson } from './cache';
+import type { CatalogType } from './db';
 import { demoArtUrl, demoToneUrl } from './demo-media';
 
 /** The subset of Jellyfin's BaseItemDto this app uses. */
@@ -192,6 +193,30 @@ async function filteredAlbums(term: string, sort: LibrarySort, order: SortOrder)
   const dir = order === 'Descending' ? -1 : 1;
   const Items = [...merged.values()].sort((a, b) => dir * key(a).localeCompare(key(b), undefined, { sensitivity: 'base' }));
   return { Items, TotalRecordCount: Items.length, StartIndex: 0 };
+}
+
+/**
+ * One page of the full library listing for the local index. Goes straight to the network
+ * (no response cache) and asks for light fields only. `since` limits albums, songs and
+ * playlists to items saved after that ISO time.
+ */
+export function catalogPage(type: CatalogType, startIndex: number, limit: number, since?: string) {
+  const s = requireSession();
+  const base = { userId: s.userId, StartIndex: startIndex, Limit: limit, SortBy: 'SortName', EnableTotalRecordCount: true, ImageTypeLimit: 1, EnableImageTypes: 'Primary' };
+  const fields = 'ChildCount,DateCreated,ProductionYear';
+  const items = { ...base, Recursive: true, ...(since ? { MinDateLastSaved: since } : {}) };
+  switch (type) {
+    case 'artist':
+      return request<ItemsResult>(`/Artists/AlbumArtists?${qs({ ...base, Fields: fields })}`);
+    case 'genre':
+      return request<ItemsResult>(`/MusicGenres?${qs({ ...base, Fields: fields })}`);
+    case 'album':
+      return request<ItemsResult>(`/Items?${qs({ ...items, IncludeItemTypes: 'MusicAlbum', Fields: fields })}`);
+    case 'playlist':
+      return request<ItemsResult>(`/Items?${qs({ ...items, IncludeItemTypes: 'Playlist', MediaTypes: 'Audio', Fields: fields })}`);
+    case 'song':
+      return request<ItemsResult>(`/Items?${qs({ ...items, IncludeItemTypes: 'Audio', Fields: 'ProductionYear' })}`);
+  }
 }
 
 export function getItem(id: string) {
