@@ -15,6 +15,7 @@ export interface Item {
   ArtistItems?: { Id: string; Name: string }[];
   ProductionYear?: number;
   PremiereDate?: string;
+  DateCreated?: string;
   IndexNumber?: number;
   ParentIndexNumber?: number;
   RunTimeTicks?: number;
@@ -142,12 +143,21 @@ const SORT_BY: Record<LibrarySort, string> = {
   artist: 'AlbumArtist,SortName',
 };
 
-export function libraryPage(kind: LibraryKind, startIndex: number, limit = 60, sort: LibrarySort = 'name', order: SortOrder = 'Ascending') {
+export function libraryPage(kind: LibraryKind, startIndex: number, limit = 60, sort: LibrarySort = 'name', order: SortOrder = 'Ascending', filter = '') {
   const s = requireSession();
-  const common = { userId: s.userId, StartIndex: startIndex, Limit: limit, SortBy: SORT_BY[sort], SortOrder: order, EnableTotalRecordCount: true };
+  const term = filter.trim();
+  const common = {
+    userId: s.userId,
+    StartIndex: startIndex,
+    Limit: limit,
+    SortBy: SORT_BY[sort],
+    SortOrder: order,
+    EnableTotalRecordCount: true,
+    ...(term ? { SearchTerm: term } : {}),
+  };
   switch (kind) {
     case 'albums':
-      return get<ItemsResult>('/Items', { ...common, IncludeItemTypes: 'MusicAlbum', Recursive: true, Fields: LIST_FIELDS, ImageTypeLimit: 1, EnableImageTypes: 'Primary' });
+      return term ? filteredAlbums(term, sort, order) : get<ItemsResult>('/Items', { ...common, IncludeItemTypes: 'MusicAlbum', Recursive: true, Fields: LIST_FIELDS, ImageTypeLimit: 1, EnableImageTypes: 'Primary' });
     case 'artists':
       return get<ItemsResult>('/Artists/AlbumArtists', { ...common, Fields: LIST_FIELDS, ImageTypeLimit: 1, EnableImageTypes: 'Primary' });
     case 'playlists':
@@ -155,6 +165,29 @@ export function libraryPage(kind: LibraryKind, startIndex: number, limit = 60, s
     case 'genres':
       return get<ItemsResult>('/MusicGenres', { ...common, Fields: LIST_FIELDS });
   }
+}
+
+const FILTER_CAP = 300;
+
+/**
+ * Albums whose title or artist matches. SearchTerm only covers the title, so also fetch the
+ * albums of matching artists, merge by Id, and sort here. Capped, so it comes back as one page.
+ */
+async function filteredAlbums(term: string, sort: LibrarySort, order: SortOrder): Promise<ItemsResult> {
+  const s = requireSession();
+  const album = { userId: s.userId, IncludeItemTypes: 'MusicAlbum', Recursive: true, Fields: LIST_FIELDS, ImageTypeLimit: 1, EnableImageTypes: 'Primary', Limit: FILTER_CAP };
+  const [byTitle, artists] = await Promise.all([
+    get<ItemsResult>('/Items', { ...album, SearchTerm: term }),
+    get<ItemsResult>('/Artists/AlbumArtists', { userId: s.userId, SearchTerm: term, Limit: 10 }),
+  ]);
+  const byArtist = artists.Items.length ? await get<ItemsResult>('/Items', { ...album, AlbumArtistIds: artists.Items.map((a) => a.Id).join(',') }) : { Items: [] as Item[] };
+  const merged = new Map<string, Item>();
+  for (const a of [...byTitle.Items, ...byArtist.Items]) merged.set(a.Id, a);
+  const key = (a: Item) =>
+    sort === 'artist' ? `${a.AlbumArtist ?? ''}\u0000${a.Name}` : sort === 'released' ? (a.PremiereDate ?? String(a.ProductionYear ?? '')) : sort === 'added' ? (a.DateCreated ?? '') : a.Name;
+  const dir = order === 'Descending' ? -1 : 1;
+  const Items = [...merged.values()].sort((a, b) => dir * key(a).localeCompare(key(b), undefined, { sensitivity: 'base' }));
+  return { Items, TotalRecordCount: Items.length, StartIndex: 0 };
 }
 
 export function getItem(id: string) {

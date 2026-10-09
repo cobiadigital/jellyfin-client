@@ -54,6 +54,29 @@
     }
   }
 
+  // Filter text is shared across tabs and survives opening an item and coming back.
+  const FILTER_KEY = 'jf.libraryFilter';
+  const savedFilter = sessionStorage.getItem(FILTER_KEY) ?? '';
+  let filterInput = $state(savedFilter);
+  let filter = $state(savedFilter);
+  let filterTimer: ReturnType<typeof setTimeout>;
+  $effect(() => {
+    const text = filterInput;
+    try {
+      sessionStorage.setItem(FILTER_KEY, text);
+    } catch {}
+    clearTimeout(filterTimer);
+    filterTimer = setTimeout(() => (filter = text), 300);
+    return () => clearTimeout(filterTimer);
+  });
+
+  function searchEverything() {
+    try {
+      sessionStorage.setItem('jf.search', filterInput.trim());
+    } catch {}
+    location.hash = href('search');
+  }
+
   let items = $state<Item[]>([]);
   let total = $state(Infinity);
   let loading = $state(false);
@@ -66,7 +89,7 @@
     loading = true;
     const gen = generation;
     try {
-      const page = await libraryPage(kind, items.length, 60, prefs.sort, prefs.order);
+      const page = await libraryPage(kind, items.length, 60, prefs.sort, prefs.order, filter);
       if (gen !== generation) return;
       items.push(...page.Items);
       total = page.Items.length ? page.TotalRecordCount : items.length;
@@ -86,6 +109,7 @@
     kind;
     prefs.sort;
     prefs.order;
+    filter;
     generation++;
     items = [];
     total = Infinity;
@@ -114,6 +138,8 @@
       <a href={href(k)} class:active={k === kind}>{label}</a>
     {/each}
   </nav>
+
+  <input class="filter" type="search" bind:value={filterInput} placeholder="Filter {kind}" enterkeyhint="search" />
 
   <div class="controls">
     <select aria-label="Sort by" value={prefs.sort} onchange={(e) => setPrefs({ sort: e.currentTarget.value as LibrarySort })}>
@@ -146,12 +172,21 @@
   {:else if loading}
     <div class="center"><div class="spinner"></div></div>
   {:else if !items.length}
-    <p class="muted center">Nothing here yet.</p>
+    <p class="muted center">{filter.trim() ? `No ${kind} match "${filter.trim()}".` : 'Nothing here yet.'}</p>
+  {/if}
+  {#if filterInput.trim() && !loading}
+    <div class="center"><button class="btn" onclick={searchEverything}>Search everything for "{filterInput.trim()}"</button></div>
   {/if}
   <div bind:this={sentinel} style="height: 1px"></div>
 </div>
 
 <style>
+  .filter {
+    width: 100%;
+    min-height: 44px;
+    font-size: 16px;
+    margin-bottom: 12px;
+  }
   .controls {
     display: flex;
     gap: 8px;
