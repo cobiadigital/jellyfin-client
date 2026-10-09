@@ -1,8 +1,9 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { libraryPage, type Item, type LibraryKind } from '../lib/jellyfin';
+  import { libraryPage, type Item, type LibraryKind, type LibrarySort, type SortOrder } from '../lib/jellyfin';
   import { href } from '../lib/router.svelte';
   import ItemCard from '../components/ItemCard.svelte';
+  import ItemRow from '../components/ItemRow.svelte';
 
   let { kind }: { kind: LibraryKind } = $props();
 
@@ -12,6 +13,46 @@
     ['playlists', 'Playlists'],
     ['genres', 'Genres'],
   ];
+
+  type View = 'tiles' | 'rows';
+  interface Prefs { view: View; sort: LibrarySort; order: SortOrder }
+
+  const sortOptions: Record<LibraryKind, [LibrarySort, string][]> = {
+    albums: [['name', 'Name'], ['artist', 'Artist'], ['released', 'Release date'], ['added', 'Date added']],
+    artists: [['name', 'Name'], ['added', 'Date added']],
+    playlists: [['name', 'Name'], ['added', 'Date added']],
+    genres: [['name', 'Name'], ['added', 'Date added']],
+  };
+
+  function loadPrefs(k: LibraryKind): Prefs {
+    const fallback: Prefs = { view: 'tiles', sort: 'name', order: 'Ascending' };
+    try {
+      const p = JSON.parse(localStorage.getItem(`jf.library.${k}`) ?? 'null') as Partial<Prefs> | null;
+      if (!p) return fallback;
+      return {
+        view: p.view === 'rows' ? 'rows' : 'tiles',
+        sort: sortOptions[k].some(([v]) => v === p.sort) ? p.sort! : 'name',
+        order: p.order === 'Descending' ? 'Descending' : 'Ascending',
+      };
+    } catch {
+      return fallback;
+    }
+  }
+
+  let prefs = $state<Prefs>(loadPrefs(untrack(() => kind)));
+  // Swap in the saved choices when the tab changes.
+  $effect(() => {
+    prefs = loadPrefs(kind);
+  });
+
+  function setPrefs(patch: Partial<Prefs>) {
+    prefs = { ...prefs, ...patch };
+    try {
+      localStorage.setItem(`jf.library.${kind}`, JSON.stringify(prefs));
+    } catch {
+      /* private mode: choices just won't persist */
+    }
+  }
 
   let items = $state<Item[]>([]);
   let total = $state(Infinity);
@@ -25,7 +66,7 @@
     loading = true;
     const gen = generation;
     try {
-      const page = await libraryPage(kind, items.length);
+      const page = await libraryPage(kind, items.length, 60, prefs.sort, prefs.order);
       if (gen !== generation) return;
       items.push(...page.Items);
       total = page.Items.length ? page.TotalRecordCount : items.length;
@@ -40,9 +81,11 @@
     }
   }
 
-  // Reset and load the first page whenever the tab changes.
+  // Reset and load the first page whenever the tab or sort changes.
   $effect(() => {
     kind;
+    prefs.sort;
+    prefs.order;
     generation++;
     items = [];
     total = Infinity;
@@ -72,11 +115,31 @@
     {/each}
   </nav>
 
-  <div class="grid">
-    {#each items as item (item.Id)}
-      <ItemCard {item} />
-    {/each}
+  <div class="controls">
+    <select aria-label="Sort by" value={prefs.sort} onchange={(e) => setPrefs({ sort: e.currentTarget.value as LibrarySort })}>
+      {#each sortOptions[kind] as [v, label]}<option value={v}>{label}</option>{/each}
+    </select>
+    <button class="btn" aria-label={prefs.order === 'Ascending' ? 'Ascending' : 'Descending'} onclick={() => setPrefs({ order: prefs.order === 'Ascending' ? 'Descending' : 'Ascending' })}>
+      {prefs.order === 'Ascending' ? '↑' : '↓'}
+    </button>
+    <button class="btn" aria-label={prefs.view === 'tiles' ? 'Switch to rows' : 'Switch to tiles'} onclick={() => setPrefs({ view: prefs.view === 'tiles' ? 'rows' : 'tiles' })}>
+      {prefs.view === 'tiles' ? 'Rows' : 'Tiles'}
+    </button>
   </div>
+
+  {#if prefs.view === 'tiles'}
+    <div class="grid">
+      {#each items as item (item.Id)}
+        <ItemCard {item} />
+      {/each}
+    </div>
+  {:else}
+    <div class="rows">
+      {#each items as item (item.Id)}
+        <ItemRow {item} />
+      {/each}
+    </div>
+  {/if}
 
   {#if error}
     <div class="center"><p class="error">{error}</p><button class="btn" onclick={retry}>Retry</button></div>
@@ -89,6 +152,25 @@
 </div>
 
 <style>
+  .controls {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .controls select {
+    flex: 1;
+    min-width: 0;
+    min-height: 44px;
+    font-size: 16px;
+  }
+  .controls .btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .rows {
+    display: flex;
+    flex-direction: column;
+  }
   .tabs {
     display: flex;
     gap: 8px;

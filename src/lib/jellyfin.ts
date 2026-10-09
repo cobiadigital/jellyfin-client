@@ -15,6 +15,7 @@ export interface Item {
   Artists?: string[];
   ArtistItems?: { Id: string; Name: string }[];
   ProductionYear?: number;
+  PremiereDate?: string;
   IndexNumber?: number;
   ParentIndexNumber?: number;
   RunTimeTicks?: number;
@@ -130,14 +131,24 @@ export async function logout() {
 
 // ---------- library ----------
 
-const LIST_FIELDS = 'PrimaryImageAspectRatio,ChildCount,ProductionYear';
+const LIST_FIELDS = 'PrimaryImageAspectRatio,ChildCount,ProductionYear,PremiereDate,DateCreated';
 const TRACK_FIELDS = 'PrimaryImageAspectRatio';
 
 export type LibraryKind = 'albums' | 'artists' | 'playlists' | 'genres';
 
-export function libraryPage(kind: LibraryKind, startIndex: number, limit = 60) {
+export type LibrarySort = 'name' | 'added' | 'released' | 'artist';
+export type SortOrder = 'Ascending' | 'Descending';
+
+const SORT_BY: Record<LibrarySort, string> = {
+  name: 'SortName',
+  added: 'DateCreated,SortName',
+  released: 'PremiereDate,ProductionYear,SortName',
+  artist: 'AlbumArtist,SortName',
+};
+
+export function libraryPage(kind: LibraryKind, startIndex: number, limit = 60, sort: LibrarySort = 'name', order: SortOrder = 'Ascending') {
   const s = requireSession();
-  const common = { userId: s.userId, StartIndex: startIndex, Limit: limit, SortBy: 'SortName', SortOrder: 'Ascending', EnableTotalRecordCount: true };
+  const common = { userId: s.userId, StartIndex: startIndex, Limit: limit, SortBy: SORT_BY[sort], SortOrder: order, EnableTotalRecordCount: true };
   switch (kind) {
     case 'albums':
       return get<ItemsResult>('/Items', { ...common, IncludeItemTypes: 'MusicAlbum', Recursive: true, Fields: LIST_FIELDS, ImageTypeLimit: 1, EnableImageTypes: 'Primary' });
