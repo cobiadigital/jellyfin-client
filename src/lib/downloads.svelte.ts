@@ -1,6 +1,7 @@
 import { db, type CollectionRecord, type DownloadRecord } from './db';
 import { downloadUrl, type Item } from './jellyfin';
-import { settings } from './session.svelte';
+import { isDemo, settings } from './session.svelte';
+import { showToast } from './toast.svelte';
 
 /**
  * Offline storage for audio.
@@ -68,6 +69,7 @@ let running: Promise<void> = Promise.resolve();
 
 /** Queue a whole album or playlist for download. Jobs run one at a time. */
 export function downloadCollection(collection: Item, tracks: Item[]) {
+  if (isDemo()) return showToast('Downloads are turned off in demo mode');
   if (downloads.jobs.some((j) => j.collectionId === collection.Id)) return;
   const job: Job = { collectionId: collection.Id, name: collection.Name, done: 0, total: tracks.length, currentBytes: 0 };
   downloads.jobs.push(job);

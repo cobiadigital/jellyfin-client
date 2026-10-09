@@ -3,6 +3,7 @@
   import { auth, saveSettings, setSession, settings } from '../lib/session.svelte';
   import { clearApiCache } from '../lib/cache';
   import { clearQueue } from '../lib/player.svelte';
+  import { exitDemo } from '../lib/demo';
 
   $effect(() => {
     // Track every field so any change is saved.
@@ -28,9 +29,14 @@
 
   <section>
     <h2>Account</h2>
-    <p>Signed in as <strong>{auth.session?.userName}</strong> on <strong>{auth.session?.serverName}</strong></p>
-    <p class="muted small">{auth.session?.server}</p>
-    <button class="btn" onclick={signOut}>Sign out</button>
+    {#if auth.session?.demo}
+      <p>You are in <strong>demo mode</strong>, using a built-in sample library. Nothing is sent to a server.</p>
+      <button class="btn" onclick={exitDemo}>Exit demo</button>
+    {:else}
+      <p>Signed in as <strong>{auth.session?.userName}</strong> on <strong>{auth.session?.serverName}</strong></p>
+      <p class="muted small">{auth.session?.server}</p>
+      <button class="btn" onclick={signOut}>Sign out</button>
+    {/if}
   </section>
 
   <section>

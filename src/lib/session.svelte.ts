@@ -10,6 +10,8 @@ export interface Session {
   userId: string;
   userName: string;
   token: string;
+  /** true for the built-in sample library: no server, no token (see demo.ts) */
+  demo?: boolean;
 }
 
 export type StreamQuality = 'original' | 320 | 192 | 128;
@@ -67,6 +69,8 @@ export const deviceId: string = (() => {
 })();
 
 export const auth = $state<{ session: Session | null }>({ session: load<Session>(SESSION_KEY) });
+
+export const isDemo = () => !!auth.session?.demo;
 
 export function setSession(session: Session | null) {
   auth.session = session;

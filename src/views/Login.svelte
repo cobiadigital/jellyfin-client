@@ -1,6 +1,7 @@
 <script lang="ts">
   import { login } from '../lib/jellyfin';
   import { setSession } from '../lib/session.svelte';
+  import { enterDemo } from '../lib/demo';
 
   let server = $state(localStorage.getItem('jf.lastServer') ?? '');
   let username = $state('');
@@ -36,6 +37,8 @@
     {#if error}<p class="error">{error}</p>{/if}
     <button class="btn primary" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
   </form>
+  <button type="button" class="btn demo" onclick={enterDemo}>Try demo</button>
+  <p class="muted note demo-note">Browse a built-in sample library with no server or sign-in.</p>
   <p class="muted note">Your server must be reachable over HTTPS from this device. The password is sent only to your server; this app stores just the access token it returns.</p>
 </main>
 
@@ -63,5 +66,12 @@
   .note {
     font-size: 0.8rem;
     margin-top: 24px;
+  }
+  .demo {
+    width: 100%;
+    margin-top: 14px;
+  }
+  .demo-note {
+    margin-top: 8px;
   }
 </style>

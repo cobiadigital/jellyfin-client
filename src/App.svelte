@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import { auth } from './lib/session.svelte';
+  import { exitDemo, handleDemoLink } from './lib/demo';
   import { route, href } from './lib/router.svelte';
   import { initDownloads } from './lib/downloads.svelte';
   import { player, restoreQueue } from './lib/player.svelte';
@@ -29,6 +30,11 @@
 
   let online = $state(navigator.onLine);
 
+  // `#/demo` starts the demo library directly (handy for preview links).
+  $effect(() => {
+    if (route.name === 'demo') untrack(handleDemoLink);
+  });
+
   onMount(() => {
     initDownloads();
     if (auth.session) restoreQueue();
@@ -40,6 +46,9 @@
 {#if !auth.session}
   <Login />
 {:else}
+  {#if auth.session.demo}
+    <div class="demo-bar">Demo · sample library <button onclick={exitDemo}>Exit demo</button></div>
+  {/if}
   {#if !online}<div class="offline">Offline · downloaded music and visited pages still work</div>{/if}
 
   {#if libraryKinds.includes(route.name as LibraryKind)}
@@ -79,6 +88,25 @@
     font-size: 0.8rem;
     text-align: center;
     padding: calc(var(--safe-t) + 4px) 8px 4px;
+  }
+  .demo-bar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    background: var(--accent-2);
+    color: #fff;
+    font-size: 0.8rem;
+    padding: calc(var(--safe-t) + 4px) 8px 4px;
+  }
+  .demo-bar button {
+    color: #fff;
+    text-decoration: underline;
+    min-height: 28px;
+    padding: 0 6px;
   }
   .bottom {
     position: fixed;
