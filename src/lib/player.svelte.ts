@@ -1,6 +1,7 @@
 import { getState, setState } from './db';
 import { downloads, offlineAudioUrl } from './downloads.svelte';
 import { imageUrl, streamUrl, type Item } from './jellyfin';
+import { settings } from './session.svelte';
 
 export type Repeat = 'off' | 'all' | 'one';
 
@@ -62,6 +63,9 @@ async function load(index: number, autoplay: boolean, startAt = 0) {
   if (objectUrl) URL.revokeObjectURL(objectUrl);
   objectUrl = local;
   player.offlineSource = !!local;
+  // Web Audio only hears cross-origin streams fetched with CORS (otherwise it outputs silence).
+  audio.crossOrigin = settings.visualizer || analyserNode ? 'anonymous' : null;
+  readableSource = !!local || audio.crossOrigin === 'anonymous';
   audio.src = local ?? streamUrl(track.Id);
   if (startAt) audio.addEventListener('loadedmetadata', () => (audio.currentTime = startAt), { once: true });
   updateMediaSession(track);
@@ -71,6 +75,7 @@ async function load(index: number, autoplay: boolean, startAt = 0) {
 
 export async function play() {
   if (player.index < 0 && player.queue.length) return load(0, true);
+  resumeContext();
   try {
     await audio.play();
   } catch (err) {
@@ -245,6 +250,46 @@ audio.addEventListener('error', () => {
   const t = current();
   player.error = `Couldn't play ${t?.Name ?? 'track'}${player.offlineSource ? ' (downloaded copy)' : navigator.onLine ? '' : ' (offline, not downloaded)'}`;
 });
+
+// ---------- visualizer audio graph ----------
+// Routing the element through Web Audio can't be undone, so the graph is built lazily:
+// only once a visualizer asks for it, the current source is readable, and the browser
+// will let the AudioContext run (a context created without a user gesture starts
+// suspended, which would silence playback).
+
+let audioCtx: AudioContext | null = null;
+let analyserNode: AnalyserNode | null = null;
+let readableSource = false;
+
+/** The shared analyser, building the audio graph if allowed. `gesture`: called from a tap. */
+export function analyser(gesture = false): AnalyserNode | null {
+  if (!analyserNode) {
+    const activated = gesture || (navigator.userActivation?.isActive ?? false);
+    if (!readableSource || !activated || typeof AudioContext === 'undefined') return null;
+    try {
+      audioCtx = new AudioContext();
+      const node = audioCtx.createAnalyser();
+      node.fftSize = 2048;
+      node.smoothingTimeConstant = 0.5;
+      node.minDecibels = -90;
+      node.maxDecibels = -20;
+      audioCtx.createMediaElementSource(audio).connect(node);
+      node.connect(audioCtx.destination);
+      analyserNode = node;
+    } catch {
+      return null;
+    }
+  }
+  resumeContext();
+  return analyserNode;
+}
+
+function resumeContext() {
+  if (audioCtx && audioCtx.state !== 'running') audioCtx.resume().catch(() => {});
+}
+
+// iOS suspends the context in the background; pick it back up on return.
+document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && resumeContext());
 
 // ---------- lock screen / notification controls ----------
 

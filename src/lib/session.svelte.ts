@@ -18,13 +18,25 @@ export interface Settings {
   streamQuality: StreamQuality;
   downloadFormat: 'transcoded' | 'original';
   downloadBitrate: 320 | 192 | 128;
+  visualizer: boolean;
+  visualizerMode: 'spectrum' | 'scope';
 }
+
+/** iOS (including iPadOS, which reports itself as a Mac) */
+export const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
 const SESSION_KEY = 'jf.session';
 const SETTINGS_KEY = 'jf.settings';
 const DEVICE_KEY = 'jf.deviceId';
 
-const defaultSettings: Settings = { streamQuality: 'original', downloadFormat: 'transcoded', downloadBitrate: 192 };
+// Off by default on iOS: routing audio through Web Audio there can stop background playback.
+const defaultSettings: Settings = {
+  streamQuality: 'original',
+  downloadFormat: 'transcoded',
+  downloadBitrate: 192,
+  visualizer: !isIOS,
+  visualizerMode: 'spectrum',
+};
 
 function load<T>(key: string): T | null {
   try {
