@@ -51,7 +51,7 @@
         </ol>
       </div>
     {:else}
-      <div class="art"><Artwork item={track} size={800} /></div>
+      <div class="stage"><Artwork item={track} size={800} /></div>
       {#if settings.visualizer && innerHeight > 500}<Visualizer />{/if}
       <div class="meta">
         <div class="title ellipsis">{track.Name}</div>
@@ -113,6 +113,35 @@
       padding-right: calc(50vw - 260px);
     }
   }
+  /* Phone landscape: artwork on the left, track info and controls on the right. */
+  @media (orientation: landscape) and (max-height: 500px) {
+    .np {
+      display: grid;
+      grid-template-columns: minmax(0, 45%) minmax(0, 1fr);
+      grid-template-rows: auto 1fr auto auto auto;
+      grid-template-areas: 'header header' 'stage .' 'stage meta' 'stage seek' 'stage controls';
+      column-gap: 24px;
+      padding-left: max(20px, env(safe-area-inset-left));
+      padding-right: max(20px, env(safe-area-inset-right));
+    }
+    header {
+      grid-area: header;
+    }
+    .stage,
+    .queue {
+      grid-area: stage;
+      padding: 8px 0 0;
+    }
+    .meta {
+      grid-area: meta;
+    }
+    .seek {
+      grid-area: seek;
+    }
+    .controls {
+      grid-area: controls;
+    }
+  }
   header {
     display: flex;
     align-items: center;
@@ -123,16 +152,20 @@
     text-align: center;
     font-size: 0.85rem;
   }
-  .art {
+  /* Fills the space left over by the title and controls; the artwork is the largest
+     square that fits in it (container units), so it never overlaps them. */
+  .stage {
     flex: 1;
     min-height: 0;
+    container-type: size;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 16px 0;
   }
-  .art :global(.art) {
-    width: min(100%, 50dvh);
+  .stage :global(.art) {
+    flex: none;
+    width: min(100cqw, 100cqh);
     box-shadow: 0 10px 40px rgb(0 0 0 / 0.5);
   }
   .meta {
