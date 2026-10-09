@@ -1,6 +1,6 @@
 <script lang="ts">
   import { logout } from '../lib/jellyfin';
-  import { auth, isIOS, saveSettings, setSession, settings } from '../lib/session.svelte';
+  import { auth, saveSettings, setSession, settings } from '../lib/session.svelte';
   import { clearApiCache } from '../lib/cache';
   import { clearQueue } from '../lib/player.svelte';
 
@@ -82,10 +82,8 @@
       <input type="checkbox" bind:checked={settings.visualizer} />
       Winamp-style visualizer
     </label>
-    <p class="muted small">Swipe the artwork on Now Playing to show the spectrum analyzer, then the oscilloscope. Double-tap a visualizer for full screen. When you turn it on, streamed music shows from the next track.</p>
-    {#if isIOS}
-      <p class="muted small">On iPhone and iPad the visualizer can stop music when the app is in the background or the screen locks. Once it has run, reload the app to restore normal background playback.</p>
-    {/if}
+    <p class="muted small">Swipe the artwork on Now Playing to show the spectrum analyzer, then the oscilloscope. Double-tap a visualizer for full screen.</p>
+    <p class="muted small">While a visualizer is on screen it streams a second, silent copy of the track to analyse, so it uses extra data. Downloaded tracks don't.</p>
   </section>
 
   <section>
