@@ -5,6 +5,7 @@
   import { href } from '../lib/router.svelte';
   import ItemCard from '../components/ItemCard.svelte';
   import ItemRow from '../components/ItemRow.svelte';
+  import Icon from '../components/Icon.svelte';
 
   let { kind }: { kind: LibraryKind } = $props();
 
@@ -19,10 +20,10 @@
   interface Prefs { view: View; sort: LibrarySort; order: SortOrder }
 
   const sortOptions: Record<LibraryKind, [LibrarySort, string][]> = {
-    albums: [['name', 'Name'], ['artist', 'Artist'], ['released', 'Release date'], ['added', 'Date added']],
-    artists: [['name', 'Name'], ['added', 'Date added']],
-    playlists: [['name', 'Name'], ['added', 'Date added']],
-    genres: [['name', 'Name'], ['added', 'Date added']],
+    albums: [['name', 'Album'], ['artist', 'Artist'], ['released', 'Year'], ['added', 'Added']],
+    artists: [['name', 'Name'], ['added', 'Added']],
+    playlists: [['name', 'Name'], ['added', 'Added']],
+    genres: [['name', 'Name'], ['added', 'Added']],
   };
 
   function loadPrefs(k: LibraryKind): Prefs {
@@ -181,14 +182,23 @@
   <input class="filter" type="search" bind:value={filterInput} placeholder="Filter {kind}" enterkeyhint="search" />
 
   <div class="controls">
-    <select aria-label="Sort by" value={prefs.sort} onchange={(e) => setPrefs({ sort: e.currentTarget.value as LibrarySort })}>
-      {#each sortOptions[kind] as [v, label]}<option value={v}>{label}</option>{/each}
-    </select>
-    <button class="btn" aria-label={prefs.order === 'Ascending' ? 'Ascending' : 'Descending'} onclick={() => setPrefs({ order: prefs.order === 'Ascending' ? 'Descending' : 'Ascending' })}>
-      {prefs.order === 'Ascending' ? '↑' : '↓'}
-    </button>
+    <div class="sorts" role="group" aria-label="Sort by">
+      {#each sortOptions[kind] as [v, label]}
+        {@const active = prefs.sort === v}
+        <button
+          class="sort"
+          class:active
+          aria-pressed={active}
+          aria-label={active ? `${label}, ${prefs.order}` : label}
+          onclick={() => setPrefs(active ? { order: prefs.order === 'Ascending' ? 'Descending' : 'Ascending' } : { sort: v })}
+        >
+          {label}
+          {#if active}<span class="caret" class:desc={prefs.order === 'Descending'}><Icon name="up" size={14} /></span>{/if}
+        </button>
+      {/each}
+    </div>
     <button class="btn" aria-label={prefs.view === 'tiles' ? 'Switch to rows' : 'Switch to tiles'} onclick={() => setPrefs({ view: prefs.view === 'tiles' ? 'rows' : 'tiles' })}>
-      {prefs.view === 'tiles' ? 'Rows' : 'Tiles'}
+      <Icon name={prefs.view === 'tiles' ? 'viewList' : 'viewGrid'} size={22} />
     </button>
   </div>
 
@@ -231,15 +241,50 @@
     gap: 8px;
     margin-bottom: 16px;
   }
-  .controls select {
+  .controls {
+    align-items: center;
+    position: sticky;
+    top: var(--safe-t);
+    z-index: 5;
+    background: var(--bg);
+    margin: 0 -16px 8px;
+    padding: 0 16px;
+  }
+  .sorts {
     flex: 1;
     min-width: 0;
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .sort {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
     min-height: 44px;
-    font-size: 16px;
+    padding: 0 12px 0 0;
+    background: none;
+    border: 0;
+    color: var(--muted, inherit);
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+  .sort.active {
+    color: inherit;
+    font-weight: 700;
+  }
+  .caret {
+    display: inline-flex;
+  }
+  .caret.desc {
+    transform: rotate(180deg);
   }
   .controls .btn {
     min-height: 44px;
     min-width: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
   .rows {
     display: flex;
