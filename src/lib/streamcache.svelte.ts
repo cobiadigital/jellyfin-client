@@ -31,6 +31,11 @@ async function refresh() {
   streamCache.bytes = rows.reduce((n, r) => n + r.bytes, 0);
 }
 
+/** Cached tracks, most recently played first. */
+export async function listCached() {
+  return (await (await db()).getAll('streamcache')).sort((a, b) => b.lastUsed - a.lastUsed);
+}
+
 export async function cachedAudioBlob(trackId: string): Promise<Blob | null> {
   if (!streamCache.tracks.has(trackId)) return null;
   const res = await (await caches.open(CACHE)).match(key(trackId));
