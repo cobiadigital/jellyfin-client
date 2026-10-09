@@ -2,14 +2,18 @@
   import { clearQueue, current, cycleRepeat, jumpTo, move, next, player, previous, removeAt, seek, toggle, toggleShuffle } from '../lib/player.svelte';
   import { artistLine, duration } from '../lib/format';
   import { href } from '../lib/router.svelte';
+  import { settings } from '../lib/session.svelte';
   import Artwork from './Artwork.svelte';
   import Icon from './Icon.svelte';
+  import Visualizer from './Visualizer.svelte';
 
   const track = $derived(current());
   let showQueue = $state(false);
   // While dragging the slider, show the drag position instead of the live time.
   let scrub = $state<number | null>(null);
   const shownTime = $derived(scrub ?? player.time);
+  // Short screens (phone landscape) have no room for the visualizer.
+  let innerHeight = $state(window.innerHeight);
 
   function close() {
     player.expanded = false;
@@ -17,7 +21,7 @@
   }
 </script>
 
-<svelte:window onkeydown={(e) => e.key === 'Escape' && close()} />
+<svelte:window bind:innerHeight onkeydown={(e) => e.key === 'Escape' && close()} />
 
 {#if track}
   <div class="np" role="dialog" aria-label="Now playing">
@@ -48,6 +52,7 @@
       </div>
     {:else}
       <div class="art"><Artwork item={track} size={800} /></div>
+      {#if settings.visualizer && innerHeight > 500}<Visualizer />{/if}
       <div class="meta">
         <div class="title ellipsis">{track.Name}</div>
         <div class="muted ellipsis">

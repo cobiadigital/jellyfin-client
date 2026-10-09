@@ -1,6 +1,6 @@
 <script lang="ts">
   import { logout } from '../lib/jellyfin';
-  import { auth, saveSettings, setSession, settings } from '../lib/session.svelte';
+  import { auth, isIOS, saveSettings, setSession, settings } from '../lib/session.svelte';
   import { clearApiCache } from '../lib/cache';
   import { clearQueue } from '../lib/player.svelte';
 
@@ -9,6 +9,8 @@
     settings.streamQuality;
     settings.downloadFormat;
     settings.downloadBitrate;
+    settings.visualizer;
+    settings.visualizerMode;
     saveSettings();
   });
 
@@ -76,6 +78,18 @@
   </section>
 
   <section>
+    <h2>Now Playing</h2>
+    <label class="check">
+      <input type="checkbox" bind:checked={settings.visualizer} />
+      Winamp-style visualizer
+    </label>
+    <p class="muted small">Tap the visualizer to switch between spectrum analyzer and oscilloscope. When you turn it on, streamed music shows from the next track.</p>
+    {#if isIOS}
+      <p class="muted small">On iPhone and iPad the visualizer can stop music when the app is in the background or the screen locks. Once it has run, reload the app to restore normal background playback.</p>
+    {/if}
+  </section>
+
+  <section>
     <h2>About</h2>
     <p class="muted small">Jellyfin Music PWA v0.1.0. Inspired by Finamp. Audio downloads are kept in this browser's Cache Storage; library data is cached in IndexedDB so screens you've visited work offline.</p>
   </section>
@@ -98,6 +112,22 @@
     margin-bottom: 12px;
     color: var(--muted);
     font-size: 0.9rem;
+  }
+  label.check {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    margin-bottom: 0;
+    color: var(--text);
+    font-size: 1rem;
+  }
+  label.check input {
+    flex: none;
+    padding: 0;
+    width: 22px;
+    height: 22px;
+    accent-color: var(--accent);
   }
   .small {
     font-size: 0.82rem;
