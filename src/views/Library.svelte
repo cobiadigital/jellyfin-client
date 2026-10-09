@@ -243,6 +243,12 @@
   }
   .controls {
     align-items: center;
+    position: sticky;
+    top: var(--safe-t);
+    z-index: 5;
+    background: var(--bg);
+    margin: 0 -16px 8px;
+    padding: 0 16px;
   }
   .sorts {
     flex: 1;
