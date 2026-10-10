@@ -1,6 +1,7 @@
 import { db } from './db';
 import { downloadUrl, type Item } from './jellyfin';
 import { isDemo, settings } from './session.svelte';
+import { statFetch, statFetchFail } from './netstats.svelte';
 
 /**
  * Opportunistic cache for streamed tracks, so songs you have already listened to
@@ -60,10 +61,12 @@ export async function cacheStreamed(track: Item) {
     // "Original" streams may be direct-played formats this browser can't replay from a blob,
     // so keep a 320 kbps AAC copy in that case.
     const q = settings.streamQuality;
+    const started = performance.now();
     const res = await fetch(downloadUrl(track.Id, 'transcoded', q === 'original' ? 320 : q));
-    if (!res.ok) return;
+    if (!res.ok) return statFetchFail(`server returned ${res.status}`);
     const contentType = res.headers.get('Content-Type') ?? 'audio/aac';
     const blob = await res.blob();
+    statFetch(blob.size, performance.now() - started);
     // Re-check: the limit may have been changed while this was downloading.
     if (blob.size === 0 || blob.size > limitBytes() / 2) return;
 
@@ -71,8 +74,8 @@ export async function cacheStreamed(track: Item) {
     await (await db()).put('streamcache', { id: track.Id, track: JSON.parse(JSON.stringify(track)), bytes: blob.size, lastUsed: Date.now() });
     await trim(track.Id);
     await refresh();
-  } catch {
-    /* offline or server error: try again next time */
+  } catch (err) {
+    statFetchFail((err as Error).message); // offline or server error: try again next time
   } finally {
     inFlight.delete(track.Id);
   }

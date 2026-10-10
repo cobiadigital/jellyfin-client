@@ -3,6 +3,7 @@ import { downloads, offlineAudioUrl } from './downloads.svelte';
 import { cacheStreamed, cachedAudioUrl, streamCache } from './streamcache.svelte';
 import { imageUrl, streamUrl, type Item } from './jellyfin';
 import { isDemo } from './session.svelte';
+import { statError, statLoadStart, statPlaying, statStalledEvent, statWaiting } from './netstats.svelte';
 
 export type Repeat = 'off' | 'all' | 'one';
 
@@ -65,6 +66,7 @@ async function load(index: number, autoplay: boolean, startAt = 0) {
   if (objectUrl) URL.revokeObjectURL(objectUrl);
   objectUrl = local;
   player.offlineSource = !!local;
+  statLoadStart();
   audio.src = local ?? streamUrl(track.Id);
   if (startAt) audio.addEventListener('loadedmetadata', () => (audio.currentTime = startAt), { once: true });
   updateMediaSession(track);
@@ -225,9 +227,14 @@ audio.addEventListener('playing', () => {
   if (!isRealTrack()) return;
   player.playing = true;
   player.loading = false;
+  statPlaying();
 });
 audio.addEventListener('pause', () => (player.playing = false));
-audio.addEventListener('waiting', () => (player.loading = true));
+audio.addEventListener('waiting', () => {
+  player.loading = true;
+  if (isRealTrack()) statWaiting();
+});
+audio.addEventListener('stalled', () => isRealTrack() && statStalledEvent());
 audio.addEventListener('canplay', () => (player.loading = false));
 audio.addEventListener('ended', () => next(true));
 audio.addEventListener('durationchange', () => {
@@ -251,9 +258,24 @@ audio.addEventListener('error', () => {
   if (!isRealTrack()) return;
   player.loading = false;
   player.playing = false;
+  statError(`${audio.error?.code ?? '?'}: ${audio.error?.message || 'media error'}`);
   const t = current();
   player.error = `Couldn't play ${t?.Name ?? 'track'}${player.offlineSource ? ' (downloaded copy)' : navigator.onLine ? '' : ' (offline, not downloaded)'}`;
 });
+
+/** Live audio element state for the debug overlay. */
+export function debugSnapshot() {
+  const b = audio.buffered;
+  let ahead = 0;
+  let end = 0;
+  for (let i = 0; i < b.length; i++) {
+    if (b.start(i) <= audio.currentTime + 0.5 && b.end(i) >= audio.currentTime) {
+      end = b.end(i);
+      ahead = end - audio.currentTime;
+    }
+  }
+  return { ahead, bufferedEnd: end, readyState: audio.readyState, networkState: audio.networkState, paused: audio.paused };
+}
 
 /** Playback position in seconds, read live (the visualizer's clock). */
 export function position() {
