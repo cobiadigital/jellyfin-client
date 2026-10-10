@@ -6,6 +6,7 @@
   import ItemCard from '../components/ItemCard.svelte';
   import ItemRow from '../components/ItemRow.svelte';
   import Icon from '../components/Icon.svelte';
+  import SearchInput from '../components/SearchInput.svelte';
 
   let { kind }: { kind: LibraryKind } = $props();
 
@@ -179,7 +180,7 @@
     {/each}
   </nav>
 
-  <input class="filter" type="search" bind:value={filterInput} placeholder="Filter {kind}" enterkeyhint="search" />
+  <div class="filter"><SearchInput bind:value={filterInput} placeholder="Filter {kind}" /></div>
 
   <div class="controls">
     <div class="sorts" role="group" aria-label="Sort by">
@@ -231,9 +232,6 @@
 
 <style>
   .filter {
-    width: 100%;
-    min-height: 44px;
-    font-size: 16px;
     margin-bottom: 12px;
   }
   .controls {
