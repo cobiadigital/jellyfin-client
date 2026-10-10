@@ -75,6 +75,13 @@
   .sub {
     font-size: 0.8rem;
   }
+  :global(html[data-tv]) .mini {
+    left: calc(var(--rail-w) + 24px);
+    right: 48px;
+    bottom: var(--safe-b);
+    max-width: none;
+    margin: 0;
+  }
   .small {
     width: 22px;
     height: 22px;
