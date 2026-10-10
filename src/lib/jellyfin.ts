@@ -100,18 +100,25 @@ function get<T>(path: string, params: Record<string, string | number | boolean |
 
 // ---------- auth ----------
 
-export async function login(serverInput: string, username: string, password: string): Promise<Session> {
-  const server = normalizeServer(serverInput);
-  let info: { ServerName: string };
+async function publicInfo(server: string): Promise<{ ServerName: string }> {
   try {
     const res = await fetch(`${server}/System/Info/Public`);
     if (!res.ok) throw new Error();
-    info = await res.json();
+    return await res.json();
   } catch {
     throw new Error(
       `Couldn't reach a Jellyfin server at ${server}. Check the URL, that it uses HTTPS, and that it's reachable from this device.`,
     );
   }
+}
+
+function toSession(server: string, serverName: string, data: { User: { Id: string; Name: string }; AccessToken: string }): Session {
+  return { server, serverName, userId: data.User.Id, userName: data.User.Name, token: data.AccessToken };
+}
+
+export async function login(serverInput: string, username: string, password: string): Promise<Session> {
+  const server = normalizeServer(serverInput);
+  const info = await publicInfo(server);
   const res = await fetch(`${server}/Users/AuthenticateByName`, {
     method: 'POST',
     headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
@@ -119,8 +126,47 @@ export async function login(serverInput: string, username: string, password: str
   });
   if (res.status === 401) throw new Error('Wrong username or password.');
   if (!res.ok) throw new Error(`Sign-in failed (${res.status}).`);
+  return toSession(server, info.ServerName, await res.json());
+}
+
+// ---------- quick connect ----------
+
+export interface QuickConnectRequest {
+  server: string;
+  serverName: string;
+  /** short code the user types into an already signed-in Jellyfin client */
+  code: string;
+  secret: string;
+}
+
+/** Starts a Quick Connect request. Throws a readable error if the server has it turned off. */
+export async function quickConnectStart(serverInput: string): Promise<QuickConnectRequest> {
+  const server = normalizeServer(serverInput);
+  const info = await publicInfo(server);
+  const off = 'Quick Connect is turned off on this server. An admin can enable it under Dashboard, General.';
+  const enabled = await fetch(`${server}/QuickConnect/Enabled`, { headers: { Authorization: authHeader() } });
+  if (enabled.ok && (await enabled.json()) === false) throw new Error(off);
+  const res = await fetch(`${server}/QuickConnect/Initiate`, { method: 'POST', headers: { Authorization: authHeader() } });
+  if (res.status === 401 || res.status === 403) throw new Error(off);
+  if (!res.ok) throw new Error(`Couldn't start Quick Connect (${res.status}).`);
   const data = await res.json();
-  return { server, serverName: info.ServerName, userId: data.User.Id, userName: data.User.Name, token: data.AccessToken };
+  return { server, serverName: info.ServerName, code: data.Code, secret: data.Secret };
+}
+
+/** Polls once. Returns a session once the code has been approved, null while still waiting. */
+export async function quickConnectCheck(req: QuickConnectRequest): Promise<Session | null> {
+  const res = await fetch(`${req.server}/QuickConnect/Connect?${qs({ secret: req.secret })}`, { headers: { Authorization: authHeader() } });
+  // The server forgets unapproved requests after a few minutes.
+  if (res.status === 404 || res.status === 401) throw new Error('That code expired.');
+  if (!res.ok) throw new Error(`Quick Connect failed (${res.status}).`);
+  if (!(await res.json()).Authenticated) return null;
+  const auth = await fetch(`${req.server}/Users/AuthenticateWithQuickConnect`, {
+    method: 'POST',
+    headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ Secret: req.secret }),
+  });
+  if (!auth.ok) throw new Error(`Sign-in failed (${auth.status}).`);
+  return toSession(req.server, req.serverName, await auth.json());
 }
 
 export async function logout() {
