@@ -3,6 +3,7 @@
   import { catalogComplete, searchCatalog } from '../lib/catalog.svelte';
   import ItemCard from '../components/ItemCard.svelte';
   import TrackList from '../components/TrackList.svelte';
+  import SearchInput from '../components/SearchInput.svelte';
 
   let term = $state(sessionStorage.getItem('jf.search') ?? '');
   type Results = { artists: Item[]; albums: Item[]; tracks: Item[]; playlists: Item[] };
@@ -61,8 +62,7 @@
 
 <div class="page">
   <h1 class="page-title">Search</h1>
-  <!-- svelte-ignore a11y_autofocus -->
-  <input type="search" bind:value={term} placeholder="Artists, albums, songs" autofocus enterkeyhint="search" />
+  <SearchInput bind:value={term} placeholder="Artists, albums, songs" autofocus />
 
   {#if loading && !results}
     <div class="center"><div class="spinner"></div></div>
