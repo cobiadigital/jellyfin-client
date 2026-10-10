@@ -22,6 +22,8 @@ export interface Settings {
   downloadBitrate: 320 | 192 | 128;
   /** storage allotted to the stream cache, in MB (0 turns it off) */
   cacheLimitMB: number;
+  /** show the streaming stats overlay */
+  debugOverlay: boolean;
   visualizer: boolean;
   /** last Now Playing view, restored when it reopens */
   nowPlayingView: 'art' | 'spectrum' | 'scope';
@@ -40,6 +42,7 @@ const defaultSettings: Settings = {
   downloadFormat: 'transcoded',
   downloadBitrate: 192,
   cacheLimitMB: 500,
+  debugOverlay: false,
   visualizer: !isIOS,
   nowPlayingView: 'art',
 };

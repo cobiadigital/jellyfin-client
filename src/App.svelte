@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
-  import { auth } from './lib/session.svelte';
+  import { auth, settings } from './lib/session.svelte';
   import { exitDemo, handleDemoLink } from './lib/demo';
   import { route, href } from './lib/router.svelte';
   import { startCatalogSync } from './lib/catalog.svelte';
@@ -12,6 +12,7 @@
   import MiniPlayer from './components/MiniPlayer.svelte';
   import NowPlaying from './components/NowPlaying.svelte';
   import Toast from './components/Toast.svelte';
+  import DebugOverlay from './components/DebugOverlay.svelte';
   import Login from './views/Login.svelte';
   import Library from './views/Library.svelte';
   import Collection from './views/Collection.svelte';
@@ -78,6 +79,7 @@
   <MiniPlayer />
   {#if player.expanded}<NowPlaying />{/if}
   <Toast />
+  {#if settings.debugOverlay}<DebugOverlay />{/if}
 
   <nav class="bottom">
     {#each nav as [name, label, icon]}

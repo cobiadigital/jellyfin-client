@@ -6,6 +6,7 @@
   import { bytes } from '../lib/format';
   import { clearQueue } from '../lib/player.svelte';
   import { exitDemo } from '../lib/demo';
+  import { resetNetStats } from '../lib/netstats.svelte';
   import { applyCacheLimit, clearStreamCache, streamCache } from '../lib/streamcache.svelte';
 
   $effect(() => {
@@ -15,6 +16,7 @@
     settings.cacheLimitMB;
     settings.downloadBitrate;
     settings.visualizer;
+    settings.debugOverlay;
     saveSettings();
   });
 
@@ -162,6 +164,16 @@
     </label>
     <p class="muted small">Swipe the artwork on Now Playing to show the spectrum analyzer, then the oscilloscope. Double-tap a visualizer for full screen.</p>
     <p class="muted small">To draw it, the app downloads a small low-quality copy of each streamed track you visualize (about 2–3 MB per 5 minutes). Downloaded tracks use no extra data.</p>
+  </section>
+
+  <section>
+    <h2>Debug</h2>
+    <label class="check">
+      <input type="checkbox" bind:checked={settings.debugOverlay} />
+      Show streaming stats overlay
+    </label>
+    <p class="muted small">Shows buffer, stalls, errors and throughput over the app while you listen. Useful when playback stutters or fails.</p>
+    <button class="btn" onclick={resetNetStats}>Reset counters</button>
   </section>
 
   <section>
