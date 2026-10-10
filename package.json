@@ -11,9 +11,12 @@
     "deploy": "vite build && wrangler deploy"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
     "idb": "^8.0.3"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.3",
     "@sveltejs/vite-plugin-svelte": "^7.0.0",
     "@tsconfig/svelte": "^5.0.4",
     "@types/node": "^22.20.5",

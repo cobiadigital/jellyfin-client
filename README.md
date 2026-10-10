@@ -42,6 +42,17 @@ The app asks for **persistent storage** on the first download so the browser won
    - The Worker name must match `name` in `wrangler.jsonc` (`jellyfin-client`), or change that file to match.
 3. Every push to `main` builds and deploys. No secrets or environment variables are needed: you sign in to your Jellyfin server from inside the app, and only the returned access token is stored, on your device.
 
+## Fire TV app (sideload)
+
+The same web app is wrapped as an Android APK with [Capacitor](https://capacitorjs.com) for Fire TV. It is built on GitHub, so no local tooling is needed.
+
+1. On GitHub, open **Actions**, then **Fire TV APK**, then **Run workflow**. To publish a downloadable Release instead, push a tag like `tv-v0.1.0`.
+2. When the run finishes, download the `jellyfin-music-firetv` artifact (or the Release asset) and unzip it if needed. Copy the link to the `.apk` for the Fire TV.
+3. On the Fire TV, install the **Downloader** app, enable **Settings, My Fire TV, Developer Options, Install unknown apps** for Downloader, then enter the APK URL.
+4. The app appears in your Fire TV Apps row. Your Jellyfin server must be HTTPS and allow CORS from `https://localhost` (Jellyfin's default does).
+
+The Cloudflare deploy is unaffected: it only runs `npm run build`.
+
 ## Local development (optional)
 
 ```sh
