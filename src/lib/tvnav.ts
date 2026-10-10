@@ -96,6 +96,7 @@ function onKeyDown(e: KeyboardEvent) {
 
   const dir = KEYS[e.key];
   if (!dir) return;
+  userMoved = true;
 
   if (isLost() || !scope().contains(active)) {
     const first = initial();
@@ -145,20 +146,47 @@ function trackScope() {
   }
 }
 
-/** After a view change, put focus on the new content if the old focused element disappeared. */
+/** Last focused link per view, so Back returns to the card you came from. */
+const memory = new Map<string, string>();
+let userMoved = false;
+let settleTimer: ReturnType<typeof setInterval> | undefined;
+
+function remember(e: FocusEvent) {
+  const el = e.target;
+  if (el instanceof HTMLAnchorElement && el.closest('.page')) memory.set(location.hash, el.getAttribute('href') ?? '');
+}
+
+const findLink = (href: string) => [...document.querySelectorAll<HTMLAnchorElement>('.page a[href]')].find((a) => a.getAttribute('href') === href);
+
+/**
+ * After a view change, put focus where it belongs once the content has rendered: the view's data-autofocus element (the Play button),
+ * else the link you left from, else the first item. Stops as soon as the user moves.
+ */
 function onRouteChange() {
-  for (const delay of [120, 500, 1200]) {
-    setTimeout(() => {
-      if (!isLost() || scope() !== document) return;
+  clearInterval(settleTimer);
+  userMoved = false;
+  const wanted = memory.get(location.hash);
+  let tries = 0;
+  settleTimer = setInterval(() => {
+    if (userMoved || scope() !== document || ++tries > 20) return clearInterval(settleTimer);
+    const back = wanted ? findLink(wanted) : undefined;
+    const marked = document.querySelector<HTMLElement>('[data-autofocus]');
+    const target = marked && visible(marked) ? marked : back && visible(back) ? back : null;
+    if (target) {
+      if (document.activeElement !== target) focusEl(target);
+      return clearInterval(settleTimer);
+    }
+    if (isLost()) {
       const first = initial(false); // content may still be loading: don't settle for the rail
       if (first) focusEl(first);
-    }, delay);
-  }
+    }
+  }, 150);
 }
 
 export function initTvNav() {
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('hashchange', onRouteChange);
+  window.addEventListener('focusin', remember);
   let queued = false;
   new MutationObserver(() => {
     if (queued) return;

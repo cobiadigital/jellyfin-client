@@ -2,6 +2,7 @@
   import type { Item } from '../lib/jellyfin';
   import { downloads } from '../lib/downloads.svelte';
   import { href } from '../lib/router.svelte';
+  import { openAlbumMenu, remoteMenu } from '../lib/remote.svelte';
   import Artwork from './Artwork.svelte';
   import Icon from './Icon.svelte';
 
@@ -19,7 +20,7 @@
   );
 </script>
 
-<a class="row" href={href(kind, item.Id)}>
+<a class="row" href={href(kind, item.Id)} use:remoteMenu={() => (kind === 'album' || kind === 'playlist') && openAlbumMenu(item)}>
   <div class="art"><Artwork {item} size={96} round={kind === 'artist'} fallback={kind} /></div>
   <div class="text">
     <div class="name ellipsis">

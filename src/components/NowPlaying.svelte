@@ -1,5 +1,6 @@
 <script lang="ts">
-  import type { Component } from 'svelte';
+  import { onMount, type Component } from 'svelte';
+  import { pushBack } from '../lib/remote.svelte';
   import { clearQueue, current, cycleRepeat, jumpTo, move, next, player, previous, removeAt, seek, toggle, toggleShuffle } from '../lib/player.svelte';
   import { artistLine, duration } from '../lib/format';
   import { href } from '../lib/router.svelte';
@@ -59,13 +60,19 @@
   }
 
   function onkeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') {
-      if (full) setFull(false);
-      else close();
-    } else if (!isTV && settings.visualizer && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !(e.target instanceof HTMLInputElement)) {
+    if (!isTV && settings.visualizer && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !(e.target instanceof HTMLInputElement)) {
       step(e.key === 'ArrowRight' ? 1 : -1);
     }
   }
+
+  // Back / Escape: leave visualizer full screen, then the queue, then Now Playing itself.
+  onMount(() =>
+    pushBack(() => {
+      if (full) setFull(false);
+      else if (showQueue) showQueue = false;
+      else close();
+    }),
+  );
 
   function close() {
     setFull(false);
