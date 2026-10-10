@@ -51,6 +51,8 @@ The same web app is wrapped as an Android APK with [Capacitor](https://capacitor
 3. On the Fire TV, install the **Downloader** app, enable **Settings, My Fire TV, Developer Options, Install unknown apps** for Downloader, then enter the APK URL.
 4. The app appears in your Fire TV Apps row. Your Jellyfin server must be HTTPS and allow CORS from `https://localhost` (Jellyfin's default does).
 
+**One-time setup for updates:** add a repository secret named `ANDROID_KEYSTORE_PASSWORD` (GitHub, Settings, Secrets and variables, Actions, New repository secret) with a long random value, 32 or more characters, from your password manager. The first build creates a signing key protected by it and stores the key file in a release called `signing-key`; later builds reuse it. Every APK then has the same signature and a higher version number, so a newer APK installs over the old one with Downloader and keeps your sign-in and downloads. APKs built before this was added used a different key, so uninstall those once first (Settings, Applications, Manage Installed Applications). Don't delete the `signing-key` release or change the secret, or the next update will need an uninstall again.
+
 The Cloudflare deploy is unaffected: it only runs `npm run build`.
 
 ## Local development (optional)
