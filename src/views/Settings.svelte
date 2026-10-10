@@ -7,6 +7,7 @@
   import { clearQueue } from '../lib/player.svelte';
   import { exitDemo } from '../lib/demo';
   import { resetNetStats } from '../lib/netstats.svelte';
+  import { getTvPref, setTvPref, type TvPref } from '../lib/tv';
   import { applyCacheLimit, clearStreamCache, streamCache } from '../lib/streamcache.svelte';
 
   $effect(() => {
@@ -19,6 +20,12 @@
     settings.debugOverlay;
     saveSettings();
   });
+
+  const tvPref = getTvPref();
+  function changeTv(v: TvPref) {
+    setTvPref(v);
+    location.reload();
+  }
 
   let stats = $state<CatalogStats | null>(null);
   $effect(() => {
@@ -88,6 +95,19 @@
       </div>
     </section>
   {/if}
+
+  <section>
+    <h2>Display</h2>
+    <label>
+      TV layout (remote control)
+      <select value={tvPref} onchange={(e) => changeTv(e.currentTarget.value as TvPref)}>
+        <option value="auto">Automatic (on for Fire TV)</option>
+        <option value="on">Always on</option>
+        <option value="off">Always off</option>
+      </select>
+    </label>
+    <p class="muted small">Changing this reloads the app.</p>
+  </section>
 
   <section>
     <h2>Streaming</h2>

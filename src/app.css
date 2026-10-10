@@ -208,3 +208,55 @@ select:focus {
 .sheet [role='menuitem']:disabled {
   opacity: 0.5;
 }
+
+/* TV mode (Fire TV / Android TV): remote control, viewed from across the room. */
+html[data-tv] {
+  font-size: 125%;
+  --nav-h: 0px;
+  --mini-h: 80px;
+  --rail-w: 120px;
+  --safe-t: 24px;
+  --safe-b: 24px;
+}
+
+html[data-tv] .page {
+  max-width: none;
+  padding: calc(var(--safe-t) + 16px) 48px calc(var(--mini-h) + var(--safe-b) + 48px) calc(var(--rail-w) + 40px);
+}
+
+html[data-tv] .grid {
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 28px 20px;
+}
+
+html[data-tv] a,
+html[data-tv] button,
+html[data-tv] [tabindex] {
+  scroll-margin: 140px 40px;
+}
+
+/* A big, obvious ring on whatever the remote is pointing at. */
+html[data-tv] :is(a, button, input, select, textarea, [tabindex]):focus {
+  outline: 4px solid var(--accent);
+  outline-offset: 4px;
+}
+
+html[data-tv] :is(a.card, .row .main, .btn):focus {
+  background: var(--surface-2);
+}
+
+html[data-tv] .btn,
+html[data-tv] .icon-btn {
+  min-height: 56px;
+}
+
+html[data-tv] .icon-btn {
+  width: 56px;
+  height: 56px;
+}
+
+html[data-tv] .sheet {
+  max-width: 640px;
+  border-radius: 20px;
+  margin-bottom: 40px;
+}

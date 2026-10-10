@@ -4,6 +4,7 @@
   import { artistLine, duration } from '../lib/format';
   import { href } from '../lib/router.svelte';
   import { saveSettings, settings } from '../lib/session.svelte';
+  import { isTV } from '../lib/tv';
   import Artwork from './Artwork.svelte';
   import Icon from './Icon.svelte';
 
@@ -61,7 +62,7 @@
     if (e.key === 'Escape') {
       if (full) setFull(false);
       else close();
-    } else if (settings.visualizer && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !(e.target instanceof HTMLInputElement)) {
+    } else if (!isTV && settings.visualizer && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !(e.target instanceof HTMLInputElement)) {
       step(e.key === 'ArrowRight' ? 1 : -1);
     }
   }
