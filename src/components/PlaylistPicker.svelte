@@ -1,11 +1,15 @@
 <script lang="ts">
   import { addToPlaylist, ApiError, createPlaylist, userPlaylists, type Item } from '../lib/jellyfin';
   import { showToast } from '../lib/toast.svelte';
+  import { pushBack } from '../lib/remote.svelte';
+  import { onMount } from 'svelte';
   import { artistLine } from '../lib/format';
   import Artwork from './Artwork.svelte';
   import Icon from './Icon.svelte';
 
   let { track, onclose }: { track: Item; onclose: () => void } = $props();
+
+  onMount(() => pushBack(onclose));
 
   let playlists = $state<Item[] | null>(null);
   let loadError = $state('');
@@ -52,7 +56,6 @@
   }
 </script>
 
-<svelte:window onkeydown={(e) => e.key === 'Escape' && onclose()} />
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div class="scrim" onclick={onclose}>

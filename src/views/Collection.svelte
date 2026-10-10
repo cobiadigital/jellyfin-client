@@ -78,7 +78,7 @@
     </header>
 
     <div class="actions">
-      <button class="btn primary" onclick={() => playTracks(tracks, 0)} disabled={!tracks.length}><Icon name="play" /> Play</button>
+      <button class="btn primary" data-autofocus onclick={() => playTracks(tracks, 0)} disabled={!tracks.length}><Icon name="play" /> Play</button>
       <button class="btn" onclick={() => playTracks(tracks, 0, true)} disabled={!tracks.length}><Icon name="shuffle" /> Shuffle</button>
       <button class="icon-btn dl" class:on={isDownloaded && !job} onclick={toggleDownload} aria-label={isDownloaded ? 'Remove download' : 'Download'} disabled={fromDownload && !isDownloaded}>
         {#if job && !job.error}<span class="progress">{job.done}/{job.total}</span>{:else}<Icon name={isDownloaded ? 'downloaded' : 'download'} />{/if}

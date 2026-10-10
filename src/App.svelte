@@ -12,6 +12,9 @@
   import MiniPlayer from './components/MiniPlayer.svelte';
   import NowPlaying from './components/NowPlaying.svelte';
   import Toast from './components/Toast.svelte';
+  import QuitDialog from './components/QuitDialog.svelte';
+  import AlbumMenu from './components/AlbumMenu.svelte';
+  import { remote } from './lib/remote.svelte';
   import DebugOverlay from './components/DebugOverlay.svelte';
   import Login from './views/Login.svelte';
   import Library from './views/Library.svelte';
@@ -79,6 +82,8 @@
   <MiniPlayer />
   {#if player.expanded}<NowPlaying />{/if}
   <Toast />
+  {#if remote.albumMenu}{#key remote.albumMenu.Id}<AlbumMenu item={remote.albumMenu} onclose={() => (remote.albumMenu = null)} />{/key}{/if}
+  {#if remote.quit}<QuitDialog />{/if}
   {#if settings.debugOverlay}<DebugOverlay />{/if}
 
   <nav class="bottom">

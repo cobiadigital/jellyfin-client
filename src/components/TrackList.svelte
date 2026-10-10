@@ -5,6 +5,7 @@
   import { addToQueue, current, playNext, playTracks, player, ticksToSeconds } from '../lib/player.svelte';
   import { duration, artistLine } from '../lib/format';
   import { href } from '../lib/router.svelte';
+  import { pushBack, remoteMenu } from '../lib/remote.svelte';
   import Artwork from './Artwork.svelte';
   import Icon from './Icon.svelte';
   import PlaylistPicker from './PlaylistPicker.svelte';
@@ -16,6 +17,11 @@
   let pickerFor = $state<Item | null>(null);
   const multiDisc = $derived(new Set(tracks.map((t) => t.ParentIndexNumber ?? 1)).size > 1);
   const playingId = $derived(current()?.Id);
+
+  // Back (or Escape) closes the track menu.
+  $effect(() => {
+    if (menuFor) return pushBack(() => (menuFor = null));
+  });
 </script>
 
 <ol class="tracks">
@@ -23,7 +29,7 @@
     {#if multiDisc && !showArt && (i === 0 || tracks[i - 1].ParentIndexNumber !== track.ParentIndexNumber)}
       <li class="disc muted">Disc {track.ParentIndexNumber ?? 1}</li>
     {/if}
-    <li class="row" class:now={playingId === track.Id}>
+    <li class="row" class:now={playingId === track.Id} use:remoteMenu={() => (menuFor = track)}>
       <button class="main" onclick={() => playTracks(tracks, i)}>
         {#if showArt}
           <span class="thumb"><Artwork item={track} size={96} /></span>

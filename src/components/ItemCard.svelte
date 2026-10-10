@@ -2,6 +2,7 @@
   import type { Item } from '../lib/jellyfin';
   import { downloads } from '../lib/downloads.svelte';
   import { href } from '../lib/router.svelte';
+  import { openAlbumMenu, remoteMenu } from '../lib/remote.svelte';
   import Artwork from './Artwork.svelte';
   import Icon from './Icon.svelte';
 
@@ -15,7 +16,7 @@
   );
 </script>
 
-<a class="card" href={href(kind, item.Id)}>
+<a class="card" href={href(kind, item.Id)} use:remoteMenu={() => (kind === 'album' || kind === 'playlist') && openAlbumMenu(item)}>
   <Artwork {item} round={kind === 'artist'} fallback={kind === 'artist' ? 'artist' : kind === 'playlist' ? 'playlist' : kind === 'genre' ? 'genre' : 'album'} />
   <div class="name ellipsis">
     {#if downloads.collections.has(item.Id)}<span class="dl"><Icon name="downloaded" size={14} /></span>{/if}
