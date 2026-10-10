@@ -145,4 +145,24 @@
   .bottom a.active {
     color: var(--accent);
   }
+
+  /* TV: a vertical rail on the left instead of the bottom bar. */
+  :global(html[data-tv]) .bottom {
+    top: 0;
+    right: auto;
+    width: var(--rail-w);
+    height: auto;
+    flex-direction: column;
+    justify-content: center;
+    gap: 12px;
+    padding: var(--safe-t) 12px var(--safe-b);
+    border-top: 0;
+    border-right: 1px solid var(--surface-2);
+  }
+  :global(html[data-tv]) .bottom a {
+    flex: none;
+    min-height: 88px;
+    border-radius: 16px;
+    font-size: 0.8rem;
+  }
 </style>
