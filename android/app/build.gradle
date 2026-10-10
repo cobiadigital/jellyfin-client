@@ -8,8 +8,8 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // CI passes these (see .github/workflows/android-apk.yml) so each build can upgrade the last.
-        versionCode (project.findProperty('versionCode') ?: '1').toInteger()
-        versionName project.findProperty('versionName') ?: '1.0'
+        versionCode = Integer.parseInt((project.findProperty('versionCode') ?: '1').toString())
+        versionName = (project.findProperty('versionName') ?: '1.0').toString()
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
