@@ -28,9 +28,36 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npx cap sync android
-      - name: Build debug APK
+      # One secret, ANDROID_KEYSTORE_PASSWORD. The first run creates a keystore protected by it and keeps it in a
+      # release called "signing-key"; later runs reuse that file, so every APK has the same signature.
+      - name: Get signing key
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_PASSWORD" ]; then
+            echo "::error::Add a repository secret named ANDROID_KEYSTORE_PASSWORD (Settings, Secrets and variables, Actions)."
+            exit 1
+          fi
+          if gh release view signing-key >/dev/null 2>&1; then
+            gh release download signing-key --pattern jellyfin-music.keystore --dir android/app
+          else
+            keytool -genkeypair -keystore android/app/jellyfin-music.keystore -storetype PKCS12 -alias jellyfin \
+              -storepass:env ANDROID_KEYSTORE_PASSWORD -keypass:env ANDROID_KEYSTORE_PASSWORD \
+              -keyalg RSA -keysize 2048 -validity 36500 -dname "CN=Jellyfin Music Sideload"
+            gh release create signing-key android/app/jellyfin-music.keystore --prerelease \
+              --title "Signing key (do not delete)" \
+              --notes "Password-protected keystore used to sign every Fire TV APK so updates install over the old version. Deleting it means one uninstall on the TV."
+          fi
+      - name: Build APK
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          # Version code rises every run so each APK can upgrade the last; the name comes from the tag.
+          NAME="${GITHUB_REF_NAME#tv-v}"
+          case "$GITHUB_REF" in refs/tags/tv-v*) ;; *) NAME="dev-${GITHUB_RUN_NUMBER}" ;; esac
+          ./gradlew assembleDebug --no-daemon -PversionCode="$GITHUB_RUN_NUMBER" -PversionName="$NAME"
       - name: Name the APK
         run: cp android/app/build/outputs/apk/debug/app-debug.apk jellyfin-music-firetv.apk
       - uses: actions/upload-artifact@v4

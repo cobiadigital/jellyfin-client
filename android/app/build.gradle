@@ -7,8 +7,10 @@ android {
         applicationId "app.cobia.jellyfin"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        // CI passes these (see .github/workflows/android-apk.yml) so each build can upgrade the last.
+        versionCode = Integer.parseInt((project.findProperty('versionCode') ?: '1').toString())
+        versionName = (project.findProperty('versionName') ?: '1.0').toString()
+
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,8 +18,25 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // CI supplies the keystore password (a GitHub secret) so every build has the same signature and can upgrade the last.
+    // Without it (local builds) the default debug key is used.
+    def keystorePassword = System.getenv('ANDROID_KEYSTORE_PASSWORD')
+    if (keystorePassword) {
+        signingConfigs {
+            sideload {
+                storeFile file('jellyfin-music.keystore')
+                storePassword keystorePassword
+                keyAlias 'jellyfin'
+                keyPassword keystorePassword
+            }
+        }
+    }
     buildTypes {
+        debug {
+            if (keystorePassword) signingConfig signingConfigs.sideload
+        }
         release {
+            if (keystorePassword) signingConfig signingConfigs.sideload
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
