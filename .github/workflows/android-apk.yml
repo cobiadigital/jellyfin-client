@@ -28,9 +28,13 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npx cap sync android
-      - name: Build debug APK
+      - name: Build APK
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon
+        run: |
+          # Version code rises every run so each APK can upgrade the last; the name comes from the tag.
+          NAME="${GITHUB_REF_NAME#tv-v}"
+          case "$GITHUB_REF" in refs/tags/tv-v*) ;; *) NAME="dev-${GITHUB_RUN_NUMBER}" ;; esac
+          ./gradlew assembleDebug --no-daemon -PversionCode="$GITHUB_RUN_NUMBER" -PversionName="$NAME"
       - name: Name the APK
         run: cp android/app/build/outputs/apk/debug/app-debug.apk jellyfin-music-firetv.apk
       - uses: actions/upload-artifact@v4
