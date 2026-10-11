@@ -65,6 +65,16 @@
     }
   }
 
+  // TV: the stage takes D-pad focus; OK or left/right cycles the view (up/down still move focus).
+  function onstagekey(e: KeyboardEvent) {
+    if (!isTV || !settings.visualizer) return;
+    if (e.key === 'Enter' || e.key === ' ') step(1);
+    else if (e.key === 'ArrowRight') step(1);
+    else if (e.key === 'ArrowLeft') step(-1);
+    else return;
+    e.preventDefault();
+  }
+
   // Back / Escape: leave visualizer full screen, then the queue, then Now Playing itself.
   onMount(() =>
     pushBack(() => {
@@ -112,6 +122,7 @@
         </ol>
       </div>
     {:else}
+      <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
       <div
         class="stage"
         role="group"
@@ -119,6 +130,8 @@
         aria-label="Artwork and visualizer. Swipe or use arrow keys to switch."
         class:swipeable={settings.visualizer}
         class:full
+        tabindex={isTV && settings.visualizer ? 0 : undefined}
+        onkeydown={onstagekey}
         onpointerdown={(e) => (swipe = { x: e.clientX, y: e.clientY })}
         {onpointerup}
         onpointercancel={() => (swipe = null)}
