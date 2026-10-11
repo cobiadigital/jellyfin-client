@@ -65,11 +65,13 @@
     }
   }
 
-  // TV: the stage takes D-pad focus; OK or left/right cycles the view (up/down still move focus).
+  // TV: the stage takes D-pad focus; left/right cycles the view, OK toggles full screen on a
+  // visualizer (up/down still move focus).
   function onstagekey(e: KeyboardEvent) {
     if (!isTV || !settings.visualizer) return;
-    if (e.key === 'Enter' || e.key === ' ') step(1);
-    else if (e.key === 'ArrowRight') step(1);
+    if (e.key === 'Enter' || e.key === ' ') {
+      if (view !== 'art') setFull(!full);
+    } else if (e.key === 'ArrowRight') step(1);
     else if (e.key === 'ArrowLeft') step(-1);
     else return;
     e.preventDefault();
