@@ -8,6 +8,7 @@
   import { exitDemo } from '../lib/demo';
   import { resetNetStats } from '../lib/netstats.svelte';
   import { getTvPref, setTvPref, type TvPref } from '../lib/tv';
+  import { onMount } from 'svelte';
   import { applyCacheLimit, clearStreamCache, streamCache } from '../lib/streamcache.svelte';
 
   $effect(() => {
@@ -26,6 +27,19 @@
     setTvPref(v);
     location.reload();
   }
+
+  // The web build is versioned by commit; the Android app has its own version name and build number.
+  let apk = $state('');
+  onMount(async () => {
+    try {
+      const { Capacitor } = await import('@capacitor/core');
+      if (!Capacitor.isNativePlatform()) return;
+      const { App } = await import('@capacitor/app');
+      const info = await App.getInfo();
+      apk = `${info.version} (build ${info.build})`;
+    } catch {}
+  });
+  const builtOn = new Date(__APP_BUILT__).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
   let stats = $state<CatalogStats | null>(null);
   $effect(() => {
@@ -198,7 +212,10 @@
 
   <section>
     <h2>About</h2>
-    <p class="muted small">Jellyfin Music PWA v0.1.0. Inspired by Finamp. Audio downloads are kept in this browser's Cache Storage; library data is cached in IndexedDB so screens you've visited work offline.</p>
+    <p>Jellyfin Music <strong>{__APP_VERSION__}</strong></p>
+    <p class="muted small">Build {__APP_COMMIT__} · {builtOn}</p>
+    {#if apk}<p class="muted small">Android app {apk}</p>{/if}
+    <p class="muted small">Inspired by Finamp. Audio downloads are kept in this browser's Cache Storage; library data is cached in IndexedDB so screens you've visited work offline.</p>
   </section>
 </div>
 

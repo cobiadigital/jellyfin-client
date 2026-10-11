@@ -2,6 +2,7 @@ import { defineConfig, type Plugin } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { execSync } from 'node:child_process';
 
 // Emits dist/sw.js from src/sw.js, injecting the list of built files to precache
 // and a version hash so a new deploy replaces the old app shell cache.
@@ -21,7 +22,25 @@ function serviceWorker(): Plugin {
   };
 }
 
+function git(args: string) {
+  try {
+    return execSync(`git ${args}`, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  } catch {
+    return '';
+  }
+}
+
+// Shown in Settings, About. The commit is supplied by whichever system is building (Cloudflare Workers
+// Builds, GitHub Actions) or by git locally, so it changes with every merge without any manual edit.
+const appVersion = JSON.parse(readFileSync('package.json', 'utf8')).version as string;
+const commit = (process.env.WORKERS_CI_COMMIT_SHA || process.env.GITHUB_SHA || git('rev-parse HEAD')).slice(0, 7) || 'dev';
+
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(appVersion),
+    __APP_COMMIT__: JSON.stringify(commit),
+    __APP_BUILT__: JSON.stringify(new Date().toISOString()),
+  },
   plugins: [svelte(), serviceWorker()],
   build: { target: 'es2022' },
 });
