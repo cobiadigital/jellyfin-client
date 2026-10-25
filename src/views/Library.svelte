@@ -5,6 +5,7 @@
   import { href } from '../lib/router.svelte';
   import ItemCard from '../components/ItemCard.svelte';
   import ItemRow from '../components/ItemRow.svelte';
+  import TrackList from '../components/TrackList.svelte';
   import Icon from '../components/Icon.svelte';
   import SearchInput from '../components/SearchInput.svelte';
 
@@ -14,6 +15,7 @@
     ['albums', 'Albums'],
     ['artists', 'Artists'],
     ['playlists', 'Playlists'],
+    ['tracks', 'Tracks'],
     ['genres', 'Genres'],
   ];
 
@@ -24,6 +26,7 @@
     albums: [['name', 'Album'], ['artist', 'Artist'], ['released', 'Year'], ['added', 'Added']],
     artists: [['name', 'Name'], ['added', 'Added']],
     playlists: [['name', 'Name'], ['added', 'Added']],
+    tracks: [['name', 'Track'], ['added', 'Added'], ['released', 'Year']],
     genres: [['name', 'Name'], ['added', 'Added']],
   };
 
@@ -156,7 +159,12 @@
   const visible = $derived.by(() => {
     const q = filterInput.trim().toLowerCase();
     if (!q) return items;
-    return items.filter((i) => i.Name.toLowerCase().includes(q) || (kind === 'albums' && i.AlbumArtist?.toLowerCase().includes(q)));
+    return items.filter(
+      (i) =>
+        i.Name.toLowerCase().includes(q) ||
+        (kind === 'albums' && i.AlbumArtist?.toLowerCase().includes(q)) ||
+        (kind === 'tracks' && [i.Artists?.[0] ?? i.AlbumArtist, i.Album].some((s) => s?.toLowerCase().includes(q))),
+    );
   });
 
   // Infinite scroll: load the next page as the bottom comes into view.
@@ -198,12 +206,16 @@
         </button>
       {/each}
     </div>
-    <button class="btn" aria-label={prefs.view === 'tiles' ? 'Switch to rows' : 'Switch to tiles'} onclick={() => setPrefs({ view: prefs.view === 'tiles' ? 'rows' : 'tiles' })}>
-      <Icon name={prefs.view === 'tiles' ? 'viewList' : 'viewGrid'} size={22} />
-    </button>
+    {#if kind !== 'tracks'}
+      <button class="btn" aria-label={prefs.view === 'tiles' ? 'Switch to rows' : 'Switch to tiles'} onclick={() => setPrefs({ view: prefs.view === 'tiles' ? 'rows' : 'tiles' })}>
+        <Icon name={prefs.view === 'tiles' ? 'viewList' : 'viewGrid'} size={22} />
+      </button>
+    {/if}
   </div>
 
-  {#if prefs.view === 'tiles'}
+  {#if kind === 'tracks'}
+    <TrackList tracks={visible} showArt single />
+  {:else if prefs.view === 'tiles'}
     <div class="grid">
       {#each visible as item (item.Id)}
         <ItemCard {item} />

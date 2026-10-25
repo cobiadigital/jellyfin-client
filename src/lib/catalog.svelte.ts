@@ -117,8 +117,8 @@ function toRecord(type: CatalogType, it: Item, syncId: string): CatalogRecord {
   } else {
     if (it.ImageTags?.Primary) r.img = it.ImageTags.Primary;
     if (it.ChildCount) r.count = it.ChildCount;
-    if (it.DateCreated) r.added = it.DateCreated;
   }
+  if (it.DateCreated) r.added = it.DateCreated;
   if (it.ProductionYear) r.year = it.ProductionYear;
   r.q = normalize([name, r.artist, r.album].filter(Boolean).join(' '));
   return r;
@@ -251,7 +251,7 @@ export function startCatalogSync() {
 
 // ---------- querying ----------
 
-const KIND_TYPE: Record<LibraryKind, CatalogType> = { albums: 'album', artists: 'artist', playlists: 'playlist', genres: 'genre' };
+const KIND_TYPE: Record<LibraryKind, CatalogType> = { albums: 'album', artists: 'artist', playlists: 'playlist', tracks: 'song', genres: 'genre' };
 
 function toItem(r: CatalogRecord): Item {
   const item: Item = { Id: r.id, Name: r.name, Type: { artist: 'MusicArtist', album: 'MusicAlbum', playlist: 'Playlist', genre: 'MusicGenre', song: 'Audio' }[r.type] };

@@ -182,7 +182,7 @@ export async function logout() {
 const LIST_FIELDS = 'PrimaryImageAspectRatio,ChildCount,ProductionYear,PremiereDate,DateCreated';
 const TRACK_FIELDS = 'PrimaryImageAspectRatio';
 
-export type LibraryKind = 'albums' | 'artists' | 'playlists' | 'genres';
+export type LibraryKind = 'albums' | 'artists' | 'playlists' | 'tracks' | 'genres';
 
 export type LibrarySort = 'name' | 'added' | 'released' | 'artist';
 export type SortOrder = 'Ascending' | 'Descending';
@@ -213,6 +213,8 @@ export function libraryPage(kind: LibraryKind, startIndex: number, limit = 60, s
       return get<ItemsResult>('/Artists/AlbumArtists', { ...common, Fields: LIST_FIELDS, ImageTypeLimit: 1, EnableImageTypes: 'Primary' });
     case 'playlists':
       return get<ItemsResult>('/Items', { ...common, IncludeItemTypes: 'Playlist', MediaTypes: 'Audio', Recursive: true, Fields: LIST_FIELDS });
+    case 'tracks':
+      return get<ItemsResult>('/Items', { ...common, IncludeItemTypes: 'Audio', Recursive: true, Fields: `${TRACK_FIELDS},ProductionYear,DateCreated` });
     case 'genres':
       return get<ItemsResult>('/MusicGenres', { ...common, Fields: LIST_FIELDS });
   }
@@ -261,7 +263,7 @@ export function catalogPage(type: CatalogType, startIndex: number, limit: number
     case 'playlist':
       return request<ItemsResult>(`/Items?${qs({ ...items, IncludeItemTypes: 'Playlist', MediaTypes: 'Audio', Fields: fields })}`);
     case 'song':
-      return request<ItemsResult>(`/Items?${qs({ ...items, IncludeItemTypes: 'Audio', Fields: 'ProductionYear' })}`);
+      return request<ItemsResult>(`/Items?${qs({ ...items, IncludeItemTypes: 'Audio', Fields: 'ProductionYear,DateCreated' })}`);
   }
 }
 

@@ -24,7 +24,7 @@
   import Downloads from './views/Downloads.svelte';
   import Settings from './views/Settings.svelte';
 
-  const libraryKinds: LibraryKind[] = ['albums', 'artists', 'playlists', 'genres'];
+  const libraryKinds: LibraryKind[] = ['albums', 'artists', 'playlists', 'tracks', 'genres'];
   const nav: [string, string, IconName][] = [
     ['albums', 'Library', 'album'],
     ['search', 'Search', 'search'],
