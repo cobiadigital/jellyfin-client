@@ -11,7 +11,7 @@ import type { Item } from './jellyfin';
 
 export const remote = $state<{ quit: boolean; albumMenu: Item | null }>({ quit: false, albumMenu: null });
 
-const homeRoutes = ['albums', 'artists', 'playlists', 'genres'];
+const homeRoutes = ['albums', 'artists', 'playlists', 'tracks', 'genres'];
 const stack: (() => void)[] = [];
 
 /** Registers something Back should close first (latest wins). Returns the unregister function. */

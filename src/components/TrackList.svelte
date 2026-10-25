@@ -10,8 +10,8 @@
   import Icon from './Icon.svelte';
   import PlaylistPicker from './PlaylistPicker.svelte';
 
-  /** showArt: playlists/search show artwork; albums show track numbers. */
-  let { tracks, showArt = false }: { tracks: Item[]; showArt?: boolean } = $props();
+  /** showArt: playlists/search show artwork; albums show track numbers. single: tapping plays just that track. */
+  let { tracks, showArt = false, single = false }: { tracks: Item[]; showArt?: boolean; single?: boolean } = $props();
 
   let menuFor = $state<Item | null>(null);
   let pickerFor = $state<Item | null>(null);
@@ -30,7 +30,7 @@
       <li class="disc muted">Disc {track.ParentIndexNumber ?? 1}</li>
     {/if}
     <li class="row" class:now={playingId === track.Id} use:remoteMenu={() => (menuFor = track)}>
-      <button class="main" onclick={() => playTracks(tracks, i)}>
+      <button class="main" onclick={() => (single ? playTracks([track]) : playTracks(tracks, i))}>
         {#if showArt}
           <span class="thumb"><Artwork item={track} size={96} /></span>
         {:else}
